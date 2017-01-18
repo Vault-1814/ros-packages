@@ -3,10 +3,12 @@ import roslib
 import rospy
 from cvision.msg import Object
 from cvision.msg import ListObjects
-
+from pycv import Recognize
 
 def getMsg():
     """there are processing camera frames and recognizing objects"""
+    cv = Recognize('/rgb/image')
+
     o1 = Object()
     o1.shape = 'cude'
     o1.coordinates = (10, 10, 0)
