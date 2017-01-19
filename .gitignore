@@ -1,0 +1,7 @@
+beginner_tutorials
+.idea
+.git
+*.log
+*.xml
+*.pyc
+*.~
