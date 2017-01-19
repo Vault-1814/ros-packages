@@ -7,7 +7,7 @@ from pycv import Recognize
 
 def getMsg():
     """there are processing camera frames and recognizing objects"""
-    cv = Recognize('/rgb/image')
+    Recognize('/rgb/image')
 
     o1 = Object()
     o1.shape = 'cude'
@@ -31,10 +31,11 @@ def talker():
     rospy.init_node('cv_recognizer', anonymous=False)
     pub = rospy.Publisher('cv_broadcast', ListObjects, queue_size=10)
     rate = rospy.Rate(1)
+    Recognize('/rgb/image')
     while not rospy.is_shutdown():
-        msg = getMsg()
-        rospy.loginfo('I sent %s objects to cv_broadcast topic', len(msg))
-        pub.publish(msg)
+        #msg = getMsg()
+        #rospy.loginfo('I sent %s objects to cv_broadcast topic', len(msg))
+        #pub.publish(msg)
         rate.sleep()
 
 if __name__ == '__main__':
