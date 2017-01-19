@@ -49,6 +49,7 @@ add_message_files(
   FILES
   Object.msg
   ListObjects.msg
+  Orientation.msg
 )
 
 ## Generate services in the 'srv' folder

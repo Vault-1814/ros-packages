@@ -1,12 +1,14 @@
 import rospy
 import cv2
 import numpy as np
+import math
 from cv_bridge import CvBridge, CvBridgeError
 from scipy.spatial import distance as dist
 from imutils import perspective
 from sensor_msgs.msg import Image
 from cvision.msg import Object
 from cvision.msg import ListObjects
+from cvision.msg import Orientation
 
 
 class Recognize:
@@ -15,13 +17,29 @@ class Recognize:
         self.pixelsPerMetric = 1
         self.WIDTH_PIXEL = 85 # nexus 5 1920x1080
 
-        self.imshape = (0, 0, 0)
+        self.imshape_px = [0, 0, 0]
+        self.imshape_mm = [0, 0, 0]
 
-        self.subscriber = rospy.Subscriber(source, Image, self.callback, queue_size=1)
+        self.subscriber_camera = rospy.Subscriber(source, Image, self.cameraCallback, queue_size=1)
+        self.subscriber_orientation = rospy.Subscriber('/orientation', Orientation, self.orientationCallback, queue_size=1)
+
 
         self.pub_main = rospy.Publisher('list_objects', ListObjects, queue_size=1)
         self.pub_view_main = rospy.Publisher('see_main', Image, queue_size=1)
         self.pub_view_depth = rospy.Publisher('see_depth', Image, queue_size=1)
+
+    def getWHImage(self, l, hfov=58, vfov=45, dfov=70):
+        """
+            hfov and vfov for asus xtion pro live
+            returns width and height of an image in [mm]
+        """
+        hfov_rad = hfov * math.pi / 180
+        vfov_rad = vfov * math.pi / 180
+        dfov_rad = dfov * math.pi / 180
+        width = 2 * l * math.atan(2 / hfov_rad)
+        height = 2 * l * math.atan(2 / vfov_rad)
+        diag = 2 * l * math.atan(2 / dfov_rad)
+        return width, height, diag
 
     def midpoint(self, ptA, ptB):
         return (ptA[0] + ptB[0]) * 0.5, (ptA[1] + ptB[1]) * 0.5
@@ -40,6 +58,8 @@ class Recognize:
         cv_image = None
         try:
             cv_image = bridge.imgmsg_to_cv2(data, "bgr8")
+            diag_px = math.sqrt(cv_image.shape[0] ** 2 + cv_image.shape[1] ** 2)
+            self.imshape_px[0], self.imshape_px[1], self.imshape_px[2] = (cv_image.shape[0], cv_image.shape[1], diag_px)
         except CvBridgeError, e:
             rospy.loginfo("Conversion failed: %s", e.message)
         return cv_image
@@ -58,7 +78,7 @@ class Recognize:
             if canvas is None:
                 list = getListObjects(image)
             else if canvas:
-                list, canvas = getListObjects(image, canvas)
+                list, imageex= getListObjects(image, true)
                     where on the canvas would be drawn contours and etc.
         """
         list = []
@@ -88,9 +108,17 @@ class Recognize:
             if self.pixelsPerMetric is None:
                 self.pixelsPerMetric = dB / self.WIDTH_PIXEL
             # compute the size of the object
-            # TODO computing ratio [pixel / mm]
-            dimA = dA / self.pixelsPerMetric
-            dimB = dB / self.pixelsPerMetric
+            """
+                object_diag_mm = object_diag_px * frame_mm / frame_px
+                !!! because angle for horizontal and vertical fields of view are different
+                        and we do not know orientation object (still)
+            """
+            dD = math.sqrt(dA ** 2 + dB ** 2)
+            dimD = dD * self.imshape_mm[2] / self.imshape_px[2]
+            rospy.loginfo("O_diag_mm = %s", dimD)
+            alpha = math.atan2(dB, dA)
+            dimA = dimD * math.sin(alpha)
+            dimB = dimD * math.cos(alpha)
             # ***
             # TODO detecting and analezing objects
             o.shape = 'undefined'
@@ -116,17 +144,17 @@ class Recognize:
                     cv2.line(image, (int(tltrX), int(tltrY)), (int(blbrX), int(blbrY)), (255, 0, 255), 2)
                     cv2.line(image, (int(tlblX), int(tlblY)), (int(trbrX), int(trbrY)), (255, 0, 255), 2)
                     # draw the object sizes on the image
-                    cv2.putText(image, "{:.1f}".format(dimA), (int(tltrX - 15), int(tltrY - 10)),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.65, (255, 255, 255), 2)
-                    cv2.putText(image, "{:.1f}".format(dimB), (int(trbrX + 10), int(trbrY)),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.65, (255, 255, 255), 2)
+                    cv2.putText(image, "{:.1f}px;{:.1f}mm".format(dA, dimA), (int(tltrX - 15), int(tltrY - 10)),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.65, (255, 0, 0), 2)
+                    cv2.putText(image, "{:.1f}px;{:.1f}mm".format(dB, dimB), (int(trbrX + 10), int(trbrY)),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.65, (255, 0, 0), 2)
                     # ------------------
         if not detail:
             return list
         else:
             return list, image
 
-    def callback(self, data):
+    def cameraCallback(self, data):
         cv_image = self.getCVImage(data)
         list, imageex = self.getListObjects(cv_image, True)
         # message for futher work
@@ -135,9 +163,12 @@ class Recognize:
         rospy.loginfo('Send %s objects', len(msg))
         self.pub_main.publish(msg)
         # message for see result
-        # for instance:
-        #   rosrun image_view image_view image:=/see_main
         msg_image = self.getMsgImage(imageex)
         self.pub_view_main.publish(msg_image)
 
-
+    def orientationCallback(self, data):
+        l = data.length
+        width_mm, height_mm, diag_mm = self.getWHImage(l)
+        rospy.loginfo("im_diag_px = %s", self.imshape_px[2])
+        rospy.loginfo("im_diag_mm = %s", diag_mm)
+        self.imshape_mm = (width_mm, height_mm, diag_mm)

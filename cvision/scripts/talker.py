@@ -3,6 +3,7 @@ import roslib
 import rospy
 from cvision.msg import Object
 from cvision.msg import ListObjects
+from cvision.msg import Orientation
 from pycv import Recognize
 
 def getMsg():
@@ -29,15 +30,17 @@ def getMsg():
 
 def talker():
     rospy.init_node('cv_recognizer', anonymous=False)
-    pub = rospy.Publisher('cv_broadcast', ListObjects, queue_size=10)
-    rate = rospy.Rate(1)
+    pub = rospy.Publisher('orientation', Orientation, queue_size=10)
+    #rate = rospy.Rate(1)
     Recognize('/rgb/image')
     while not rospy.is_shutdown():
         #msg = getMsg()
         #rospy.loginfo('I sent %s objects to cv_broadcast topic', len(msg))
         #pub.publish(msg)
-        rate.sleep()
-
+        #rate.sleep()
+        msg = Orientation()
+        msg.length = 110
+        pub.publish(msg)
 if __name__ == '__main__':
     try:
         talker()
