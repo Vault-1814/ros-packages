@@ -13,7 +13,9 @@ from cvision.msg import Orientation
 
 class Recognize:
 
-    def __init__(self, source):
+    def __init__(self, source, is_ros_msg=False):
+        self.is_ros_msg = is_ros_msg
+
         self.pixelsPerMetric = 1
         self.WIDTH_PIXEL = 85 # nexus 5 1920x1080
 
@@ -115,7 +117,7 @@ class Recognize:
             """
             dD = math.sqrt(dA ** 2 + dB ** 2)
             dimD = dD * self.imshape_mm[2] / self.imshape_px[2]
-            rospy.loginfo("O_diag_mm = %s", dimD)
+            #rospy.loginfo("O_diag_mm = %s", dimD)
             alpha = math.atan2(dB, dA)
             dimA = dimD * math.sin(alpha)
             dimB = dimD * math.cos(alpha)
@@ -155,7 +157,10 @@ class Recognize:
             return list, image
 
     def cameraCallback(self, data):
-        cv_image = self.getCVImage(data)
+        if self.is_ros_msg:
+            cv_image = self.getCVImage(data)
+        else:
+            cv_image = data
         list, imageex = self.getListObjects(cv_image, True)
         # message for futher work
         msg = ListObjects()
@@ -169,6 +174,6 @@ class Recognize:
     def orientationCallback(self, data):
         l = data.length
         width_mm, height_mm, diag_mm = self.getWHImage(l)
-        rospy.loginfo("im_diag_px = %s", self.imshape_px[2])
-        rospy.loginfo("im_diag_mm = %s", diag_mm)
+        #rospy.loginfo("im_diag_px = %s", self.imshape_px[2])
+        #rospy.loginfo("im_diag_mm = %s", diag_mm)
         self.imshape_mm = (width_mm, height_mm, diag_mm)
