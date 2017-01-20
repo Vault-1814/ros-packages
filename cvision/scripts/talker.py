@@ -11,8 +11,9 @@ from cvision.msg import Orientation
 from sensor_msgs.msg import Image
 from pycv import Recognize
 
-CAMERA = 2
-OPENCV_CAM = 0
+CAMERA = 0
+OPENCV_CAM = -1
+
 ASUS_XTION_TOPIC = '/rgb/image'
 USB_CAM_TOPIC = '/usb_cam/image_raw'
 OPENCV_TOPIC = '/see_main_webcam'
@@ -40,13 +41,15 @@ def getTopicForCamera(camera):
 def talker():
     rospy.init_node('cv_recognizer', anonymous=False)
     bridge = CvBridge()
-    cam = cv2.VideoCapture(0)
+    cam = cv2.VideoCapture(OPENCV_CAM)
     pup_opencv_cam = rospy.Publisher('see_main_webcam', Image, queue_size=1)
     pub_orientation = rospy.Publisher('orientation', Orientation, queue_size=10)
 
     camera_topic = getTopicForCamera(CAMERA)
     # main callback there
     # TODO think about it
+    #Recognize(camera_topic, True)
+    rospy.loginfo(camera_topic)
     Recognize(camera_topic, True)
 
     while not rospy.is_shutdown():
