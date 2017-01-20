@@ -1,3 +1,4 @@
 string shape
-float64[3] coordinates
+float64[3] coordinates_center_frame
+float64[3] coordinates_frame
 float64[3] dimensions
