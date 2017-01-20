@@ -43,7 +43,7 @@ def talker():
     bridge = CvBridge()
     cam = cv2.VideoCapture(OPENCV_CAM)
     pup_opencv_cam = rospy.Publisher('see_main_webcam', Image, queue_size=1)
-    pub_orientation = rospy.Publisher('orientation', Orientation, queue_size=10)
+    #pub_orientation = rospy.Publisher('orientation', Orientation, queue_size=10)
 
     camera_topic = getTopicForCamera(CAMERA)
     # main callback there
@@ -64,9 +64,9 @@ def talker():
                 rospy.loginfo("Conversion failed: %s", e.message)
             pup_opencv_cam.publish(msg_cv)
         # height from manipulator
-        msg = Orientation()
-        msg.length = 110
-        pub_orientation.publish(msg)
+        #msg = Orientation()
+        #msg.length = 110
+        #pub_orientation.publish(msg)
 if __name__ == '__main__':
     try:
         talker()
