@@ -11,8 +11,11 @@ from cvision.msg import Orientation
 from sensor_msgs.msg import Image
 from pycv import Recognize
 
-CAMERA = 0
-OPENCV_CAM = -1
+
+# 0 is xtion, 1 is usb_cam topic, 2 is opencv source
+CAMERA = 2
+# select /dev/video%
+OPENCV_CAM = 0
 
 ASUS_XTION_TOPIC = '/rgb/image'
 USB_CAM_TOPIC = '/usb_cam/image_raw'
