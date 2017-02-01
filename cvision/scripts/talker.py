@@ -13,11 +13,12 @@ from pycv import Recognize
 
 
 # 0 is xtion, 1 is usb_cam topic, 2 is opencv source
-CAMERA = 2
+CAMERA = 3
 # select /dev/video%
-OPENCV_CAM = 0
+OPENCV_CAM = -1
 
-ASUS_XTION_TOPIC = '/rgb/image'
+CUSTOM_TOPIC = '/usb_cam/image_rect'
+ASUS_XTION_TOPIC = '/camera/rgb/image_rect_color'
 USB_CAM_TOPIC = '/usb_cam/image_raw'
 OPENCV_TOPIC = '/see_main_webcam'
 
@@ -39,6 +40,8 @@ def getTopicForCamera(camera):
             rospy.logfatal("Opencv camera is off in 'talker.py' file!")
             raise rospy.ROSException
         return OPENCV_TOPIC
+    elif camera == 3:
+        return CUSTOM_TOPIC
 
 
 def talker():

@@ -38,9 +38,9 @@ class Recognize:
         hfov_rad = hfov * math.pi / 180
         vfov_rad = vfov * math.pi / 180
         dfov_rad = dfov * math.pi / 180
-        width = 2 * l * math.atan(2 / hfov_rad)
-        height = 2 * l * math.atan(2 / vfov_rad)
-        diag = 2 * l * math.atan(2 / dfov_rad)
+        width = 2 * l * math.tan(hfov_rad / 2)
+        height = 2 * l * math.tan(vfov_rad / 2)
+        diag = 2 * l * math.tan(dfov_rad / 2)
         return width, height, diag
 
     def midpoint(self, ptA, ptB):
@@ -122,9 +122,9 @@ class Recognize:
                 !!! because angle for horizontal and vertical fields of view are different
                         and we do not know orientation object (still)
             """
-            dD = math.sqrt(dA ** 2 + dB ** 2)
             # [mm]
             ratio = self.imshape_mm[2] / self.imshape_px[2]
+            dD = math.sqrt(dA ** 2 + dB ** 2)
             dimD = dD * ratio
             #rospy.loginfo("O_diag_mm = %s", dimD)
             alpha = math.atan2(dB, dA)
@@ -147,6 +147,7 @@ class Recognize:
                 # draw corner points
                 for (x, y) in box:
                     cv2.circle(image, (int(x), int(y)), 5, (0, 0, 255), -1)
+                    """
                     # draw the midpoints on the image
                     cv2.circle(image, (int(tltrX), int(tltrY)), 5, (255, 0, 0), -1)
                     cv2.circle(image, (int(blbrX), int(blbrY)), 5, (255, 0, 0), -1)
@@ -157,18 +158,19 @@ class Recognize:
                     # draw lines between the midpoints
                     cv2.line(image, (int(tltrX), int(tltrY)), (int(blbrX), int(blbrY)), (255, 0, 255), 2)
                     cv2.line(image, (int(tlblX), int(tlblY)), (int(trbrX), int(trbrY)), (255, 0, 255), 2)
+
                     cv2.putText(image, "{:.1f}px;{:.1f}px".format(self.imshape_px[0], self.imshape_px[1]),
                                 (int(0 + 15), int(0 + 20)),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.65, (0, 255, 0), 2)
                     cv2.putText(image, "{:.1f}mm;{:.1f}mm".format(self.imshape_mm[0], self.imshape_mm[1]),
                                 ((0 + 15), int(0 + 50)), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (0, 255, 0), 2)
-                    
+                    """
 
                     # draw the object sizes on the image
                     cv2.putText(image, "{:.1f}px;{:.1f}mm".format(dA, dimA), (int(tltrX - 15), int(tltrY - 10)),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.65, (255, 0, 0), 2)
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.25, (255, 0, 0), 1)
                     cv2.putText(image, "{:.1f}px;{:.1f}mm".format(dB, dimB), (int(trbrX + 10), int(trbrY)),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.65, (255, 0, 0), 2)
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.25, (255, 0, 0), 1)
                     # ------------------
                     
         if not detail:
@@ -193,7 +195,7 @@ class Recognize:
 
     def orientationCallback(self, data):
         l = data.length
-        width_mm, height_mm, diag_mm = self.getWHImage(l)
+        width_mm, height_mm, diag_mm = self.getWHImage(l, 54.5, 42.3, 66.17)
         #rospy.loginfo("im_diag_px = %s", self.imshape_px[2])
         #rospy.loginfo("im_diag_mm = %s", diag_mm)
         self.imshape_mm = (width_mm, height_mm, diag_mm)
