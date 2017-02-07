@@ -85,7 +85,7 @@ class Recognize:
         """
         list = []
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        edged = cv2.Canny(gray, 70, 120)
+        edged = cv2.Canny(gray, 70, 600)
         edged = cv2.dilate(edged, None, iterations=3)
         edged = cv2.erode(edged, None, iterations=2)
         contours, hierarchy = cv2.findContours(edged, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -134,7 +134,7 @@ class Recognize:
             # TODO detecting and analezing objects
             o.shape = 'undefined'
             o.dimensions = (dimA, dimB, 1)
-            o.coordinates_center_frame = (xcc*ratio*0.001, ycc*ratio*0.001, 0)
+            o.coordinates_center_frame = (ycc*ratio*0.001, xcc*ratio*0.001, 0)
             o.coordinates_frame = (tltrX*ratio*0.001, tlblY*ratio*0.001, 0)
             #info = "Height:%d\tWidth:%d\n" % (dimA, dimB)
             #rospy.loginfo(info)
@@ -147,6 +147,12 @@ class Recognize:
                 # draw corner points
                 for (x, y) in box:
                     cv2.circle(image, (int(x), int(y)), 5, (0, 0, 255), -1)
+                    cv2.line(image, (0, self.imshape_px[0]/2),
+                             (self.imshape_px[1], self.imshape_px[0]/2), (0,0, 255), 1)
+                    cv2.line(image, (self.imshape_px[1]/2, 0),
+                             (self.imshape_px[1]/2, self.imshape_px[0]), (0,0, 255), 1)
+                    cv2.line(image, (int(tltrX), int(tltrY)), (int(blbrX), int(blbrY)), (255, 0, 255), 1)
+                    cv2.line(image, (int(tlblX), int(tlblY)), (int(trbrX), int(trbrY)), (255, 0, 255), 1)
                     """
                     # draw the midpoints on the image
                     cv2.circle(image, (int(tltrX), int(tltrY)), 5, (255, 0, 0), -1)
@@ -154,10 +160,7 @@ class Recognize:
                     cv2.circle(image, (int(tlblX), int(tlblY)), 5, (255, 0, 0), -1)
                     cv2.circle(image, (int(trbrX), int(trbrY)), 5, (255, 0, 0), -1)
                     cv2.circle(image, (int(x0), int(y0)), 5, (0, 255, 0), -1)
-                    
-                    # draw lines between the midpoints
-                    cv2.line(image, (int(tltrX), int(tltrY)), (int(blbrX), int(blbrY)), (255, 0, 255), 2)
-                    cv2.line(image, (int(tlblX), int(tlblY)), (int(trbrX), int(trbrY)), (255, 0, 255), 2)
+
 
                     cv2.putText(image, "{:.1f}px;{:.1f}px".format(self.imshape_px[0], self.imshape_px[1]),
                                 (int(0 + 15), int(0 + 20)),
@@ -165,7 +168,6 @@ class Recognize:
                     cv2.putText(image, "{:.1f}mm;{:.1f}mm".format(self.imshape_mm[0], self.imshape_mm[1]),
                                 ((0 + 15), int(0 + 50)), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (0, 255, 0), 2)
                     """
-
                     # draw the object sizes on the image
                     cv2.putText(image, "{:.1f}px;{:.1f}mm".format(dA, dimA), (int(tltrX - 15), int(tltrY - 10)),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.25, (255, 0, 0), 1)
