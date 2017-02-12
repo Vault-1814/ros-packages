@@ -85,7 +85,7 @@ class Recognize:
         """
         list = []
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        edged = cv2.Canny(gray, 70, 600)
+        edged = cv2.Canny(gray, 70, 500)
         edged = cv2.dilate(edged, None, iterations=3)
         edged = cv2.erode(edged, None, iterations=2)
         contours, hierarchy = cv2.findContours(edged, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -130,12 +130,14 @@ class Recognize:
             alpha = math.atan2(dB, dA)
             dimA = dimD * math.sin(alpha)
             dimB = dimD * math.cos(alpha)
+            s = "(%d,%d);(%d,%d);(%d,%d)==%f" % (x0, y0, xcc, ycc, yoc, xoc, ratio)
+            rospy.loginfo(s)
             # ***
             # TODO detecting and analezing objects
             o.shape = 'undefined'
             o.dimensions = (dimA, dimB, 1)
-            o.coordinates_center_frame = (ycc*ratio*0.001, xcc*ratio*0.001, 0)
-            o.coordinates_frame = (tltrX*ratio*0.001, tlblY*ratio*0.001, 0)
+            o.coordinates_center_frame = (ycc*ratio, xcc*ratio, 0)
+            o.coordinates_frame = (tltrX*ratio, tlblY*ratio, 0)
             #info = "Height:%d\tWidth:%d\n" % (dimA, dimB)
             #rospy.loginfo(info)
             list.append(o)
@@ -147,10 +149,10 @@ class Recognize:
                 # draw corner points
                 for (x, y) in box:
                     cv2.circle(image, (int(x), int(y)), 5, (0, 0, 255), -1)
-                    cv2.line(image, (0, self.imshape_px[0]/2),
-                             (self.imshape_px[1], self.imshape_px[0]/2), (0,0, 255), 1)
-                    cv2.line(image, (self.imshape_px[1]/2, 0),
-                             (self.imshape_px[1]/2, self.imshape_px[0]), (0,0, 255), 1)
+                    cv2.line(image, (0, y0),
+                             (self.imshape_px[1], y0), (0,0, 255), 1)
+                    cv2.line(image, (x0, 0),
+                             (x0, self.imshape_px[0]), (0,0, 255), 1)
                     cv2.line(image, (int(tltrX), int(tltrY)), (int(blbrX), int(blbrY)), (255, 0, 255), 1)
                     cv2.line(image, (int(tlblX), int(tlblY)), (int(trbrX), int(trbrY)), (255, 0, 255), 1)
                     """
@@ -194,6 +196,7 @@ class Recognize:
         # message for see result
         msg_image = self.getMsgImage(imageex)
         self.pub_view_main.publish(msg_image)
+
 
     def orientationCallback(self, data):
         l = data.length
