@@ -1,35 +1,60 @@
 import rospy
 import cv2
 import imutils
-import trackbar as tb
-import utils
+import scripts.cv_methods_factory.exmodules.cvgui as tb
+import scripts.cv_methods_factory.exmodules.utils
+import threading
+from collections import deque
+import time
 from sensor_msgs.msg import Image
 
-class BlurConfig:
+
+class RefreshTrackbarsThread(threading.Thread):
+    def __init__(self, queue, cfgFilteringNode):
+        threading.Thread.__init__(self)
+        self.queue = queue
+        self.cfn = cfgFilteringNode
+
+    def run(self):
+        while True:
+            while len(self.queue) == 0:
+                time.sleep(0.1)
+            self.cfn.typeBlur = self.cfn.tbTB.get_trackbar_value('TYPE_BLUR')
+            if self.cfn.typeBlur != self.cfn.oldTypeBlur:
+                if self.cfn.tbs:
+                    cv2.destroyWindow(self.cfn.tbs.get_win_name())
+                self.cfn.tbs = tb.Trackbar(self.cfn.getFilterName(self.cfn.typeBlur))
+                self.cfn.tbs.add_filters(self.cfn.getTrackbarsForFilter(self.cfn.typeBlur))
+                self.cfn.tbs.add_filter(self.cfn.fBorderType)
+                self.cfn.oldTypeBlur = self.cfn.typeBlur
+            k = cv2.waitKey(6) & 0xFF
+            if k in [27, ord('q')]:
+                rospy.signal_shutdown('Quit')
+            elif k == ord('s'):
+                # TODO save parameters for filter
+                #self.cfgFilteringNode.parametersDump(lalalal)
+                pass
+
+class CfgFilteringNode:
     def __init__(self, cameraTopic, dstTopic):
         rospy.loginfo(cameraTopic)
         self.fTypeBlur = tb.Filter('TYPE_BLUR', 0, 8, 0)
         self.tbTB = tb.Trackbar('SELECT_TYPE_BLUR_FILTER', self.fTypeBlur)
+        self.fBorderType = tb.Filter('BORDER_TYPE', 0, 8, 0)
+
         self.oldTypeBlur = -1
         self.typeBlur = 0
-        self.fBorderType = tb.Filter('BORDER_TYPE', 0, 8, 0)
+        self.tbs = ''
+
         self.subCamera = rospy.Subscriber(
             cameraTopic, Image, self.callback, 1)
         self.pubImage = rospy.Publisher(
             dstTopic, Image, queue_size=1)
-        self.tbs = ''
-        while True:
-            self.typeBlur = self.tbTB.get_trackbar_value('TYPE_BLUR')
-            if self.typeBlur != self.oldTypeBlur:
-                if self.tbs:
-                    cv2.destroyWindow(self.tbs.get_win_name())
-                self.tbs = tb.Trackbar(self.getFilterName(self.typeBlur))
-                self.tbs.add_filters(self.getTrackbarsForFilter(self.typeBlur))
-                self.tbs.add_filter(self.fBorderType)
-                self.oldTypeBlur = self.typeBlur
-            rospy.sleep(0.1)
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
+
+        self.queueRefresh = deque([], 1)
+        self.displayThread = RefreshTrackbarsThread(self.queueRefresh, self)
+        self.displayThread.setDaemon(True)
+        self.displayThread.start()
 
     def getBorderType(self, bt):
         """for opencv 3.2"""
@@ -200,7 +225,7 @@ class BlurConfig:
         return image
 
     def callback(self, data, x):
-        img = utils.getCVImage(data)
+        img = scripts.cv_methods_factory.exmodules.utils.getCVImage(data)
         if type(img[0, 0]) is not list:
             w, h, _ = img.shape
             #img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -209,14 +234,16 @@ class BlurConfig:
             img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         scale = 2
         img = cv2.resize(img, (h / scale, w / scale))
+        self.queueRefresh.append('refresh')
         try:
             img = self.filteringImage(img, self.typeBlur, self.tbs)
+
             filterName = self.getFilterName(self.typeBlur)
             values = self.tbs.get_trackbar_values()
             rospy.loginfo(filterName)
             rospy.loginfo(values)
         except:
             rospy.loginfo('problems in a type border select! quickly move the slider!!!')
-        msg = utils.getMsgImage(img)
+        msg = scripts.cv_methods_factory.exmodules.utils.getMsgImage(img)
         self.pubImage.publish(msg)
 

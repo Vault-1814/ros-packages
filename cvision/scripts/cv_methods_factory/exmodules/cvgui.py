@@ -2,7 +2,7 @@ import cv2
 
 
 class Filter:
-    def __init__(self, title, min, max, value):
+    def __init__(self, title, (min, max, value)):
         self.title = title
         self.min = min
         self.max = max
@@ -15,6 +15,7 @@ class Trackbar:
         self.all_filters = []
         self.add_filters(filters)
         self.setup_trackbars(self.all_filters)
+        self.isChange = False
 
     def set_win_name(self, win_name):
         self.win_name = win_name
@@ -27,13 +28,21 @@ class Trackbar:
         self.setup_trackbars(self.all_filters)
 
     def add_filters(self, *filters):
-        for f in filters[0]:
+        if len(filters) == 1:
+            filters = filters[0]
+        for f in filters:
             print(f.title + ' filter was added!')
             self.all_filters.append(f)
         self.setup_trackbars(self.all_filters)
 
     def callback(self, value):
-        pass
+        self.isChange = True
+
+    def isChanged(self):
+        if self.isChange:
+            self.isChange = False
+            return True
+        return False
 
     def setup_trackbars(self, range_filter):
         cv2.namedWindow(self.win_name, 0)

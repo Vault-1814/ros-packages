@@ -1,15 +1,13 @@
 #!/usr/bin/env python
 import rospy
-import cv_methods_factory.exmodules.config_blurs as cb
+import cv_methods_factory.exmodules.test_filters as tf
 
 
 def main():
-    rospy.init_node('cv_tests', anonymous=False)
-    cb.BlurConfig('/usb_cam/image_raw', 'preview')
+    rospy.init_node('cfg_filtering', anonymous=False)
+    tf.CfgFilteringNode('/usb_cam/image_raw', 'preview')
     rospy.Rate(10)
     rospy.spin()
-    #while not rospy.is_shutdown():
-    #pass
 
 if __name__ == '__main__':
     try:
