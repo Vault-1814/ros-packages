@@ -73,9 +73,8 @@ class CfgFilteringNode:
         image = utils.getCVImage(date)
         self.typeFilter = self.tbsFilterSelector.get_trackbar_value(FILTER_SELECTOR)
         self.queueRefresh.append(0)
-        image = self.filter.filtering(image)
         try:
-            pass
+            image = self.filter.filtering(image)
         except:
             rospy.loginfo('problem with filtering!')
         msg = utils.getMsgImage(image)
