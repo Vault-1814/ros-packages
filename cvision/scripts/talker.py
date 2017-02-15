@@ -18,7 +18,7 @@ CAMERA = 3
 OPENCV_CAM = -1
 
 CUSTOM_TOPIC = '/usb_cam/image_rect'
-ASUS_XTION_TOPIC = '/camera/rgb/image_rect_color'
+ASUS_XTION_TOPIC = '/camera/rgb/image_raw'
 USB_CAM_TOPIC = '/usb_cam/image_raw'
 OPENCV_TOPIC = '/see_main_webcam'
 
