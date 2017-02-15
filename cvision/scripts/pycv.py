@@ -86,14 +86,15 @@ class Recognize:
         """
         list = []
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        gray = cv2.GaussianBlur(gray, (5, 5), 0)
-        edged = cv2.Canny(gray, 70, 200)
+        #gray = cv2.GaussianBlur(gray, (5, 5), 0)
+        gray = cv2.medianBlur(image, 15)
+        edged = cv2.Canny(gray, 70, 250)
         edged = cv2.dilate(edged, None, iterations=3)
         edged = cv2.erode(edged, None, iterations=2)
         contours, hierarchy = cv2.findContours(edged, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         for contour in contours:
             o = Object()
-            if cv2.contourArea(contour) < 1000:
+            if cv2.contourArea(contour) < 600:
                 continue
             box = cv2.minAreaRect(contour)
             box = cv2.cv.BoxPoints(box)
