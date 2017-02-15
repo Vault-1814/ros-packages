@@ -1,57 +1,15 @@
-# how to run this crap?
+#how to run this crap?
 
-первое)  нужно определиться с тем, откуда будем принимать видео поток. вот варианты:
-
-a) asus xtion
-b) обычная камера
-
-второе) нужно открыть вашим любимым текстовым редактором файл talker.py пакета cvision. например это можно сделать так:
-
-$ rosed cvision talker.py
-
-третье) найти в этом файле следующие две строчки:
-
-	CAMERA = X
-	OPENCV_CAM = N
-
-	X может быть инициализированна следующими значениями:
-		0 -- если хотите использовать ASUS XTion Pro Live
-			тогда N = -1
-		1 -- если хотите поиспользовать пакет usb_cam для получения видео потока
-			тогда N = -1
-		2 -- если предпочитаете получать картинку с камеры с помощью библиотеки OpenCV
-			тогда N равно индексу желаемой камеры из /dev/video$
-
-четвертое) запустить все. как запустить написано дальше.
-
-Примеры запуска:
-	ASUS XTion Pro Live:
-		заменить в talker.py
-			CAMERA = 0
-			OPENCV_CAM = -1
-		$ roscore
-		$ rosrun openni2_camera openni2_camera_node
-		$ rosrun cvision talker.py
-
-	Обычная камера USB_CAM: 
-		заменить в talker.py
-			CAMERA = 1
-			OPENCV_CAM = -1
-		$ roscore
-		$ rosrun usb_cam usb_cam_node
-		$ rosrun cvision talker.py
 	
-	Обычная камера OpenCV VideoCapture:
-		заменить в talker.py
-			CAMERA = 2
-			OPENCV_CAM = 0 # напоминаю, что это номер устройства из /dev/video$. на ноуте 0 -- это встроенная камера.
-		$ roscore
-		$ rosrun cvision talker.py
+	$ kirix@automn:~/.ros/camera_info$ ls
+		head_camera.yaml
+	
+	$ roscore
+	$ roslaunch usb_cam usb_cam-test.launch
+	$ ROS_NAMESPACE=usb_cam rosrun image_proc image_proc
+	$ rosrun cvision talker.py
 
-		USEFUL TOPICS
-			/Orientation -- сюда нужно публиковать расстояние от объектов до камеры. иначе ничего не будет измеряться и вычисляться.
+	$ rostopic pub /orientation cvision/Orientation "length: 485.0"
+	$ rostopic echo /list_objects -c
+	$ rosrun image_view image_view image:=/see_main
 
-			/see_main -- тут видео с0 всякой инфой, которая обрабатывается, считается, высчитывается, перевысчитывается
-			/listObjects -- сюда заплывают списочки найденых объектов с геометрией и координатами
-
-зы. возможно я могу опечататься в назаниях пакетов-файлов, так что не нужно вопринимать сие как нечто такое, что работает прям.
