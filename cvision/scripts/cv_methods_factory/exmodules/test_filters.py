@@ -31,7 +31,7 @@ class RefreshTrackbarsThread(threading.Thread):
                     cv2.destroyWindow(tbsWindowName)
                 # open the window for new filter
                 filterName = ff.getFilterName(self.cfn.typeFilter)
-                self.cfn.tbsWindow = cvgui.Trackbar(filterName)
+                self.cfn.tbsWindow = cvgui.TrackbarWindow(filterName)
                 rospy.loginfo(self.cfn.tbsWindow.get_win_name())
                 self.cfn.filter = self.cfn.flrf.getFilter(filterName, self.cfn.tbsWindow)
                 self.cfn.oldTypeFilter = self.cfn.typeFilter
@@ -53,9 +53,9 @@ class CfgFilteringNode:
         self.flrf = ff.FilterFactory()
 
         # create a trackbar for selection different filters
-        self.ftypeFilter = cvgui.Filter(FILTER_SELECTOR, (0, 4, 0))
-        self.tbsFilterSelector = cvgui.Trackbar('filter selector',
-                                                self.ftypeFilter)
+        self.ftypeFilter = cvgui.Trackbar(FILTER_SELECTOR, (0, 4, 0))
+        self.tbsFilterSelector = cvgui.TrackbarWindow('filter selector',
+                                                      self.ftypeFilter)
         self.typeFilter = 0
         self.oldTypeFilter = -1
 

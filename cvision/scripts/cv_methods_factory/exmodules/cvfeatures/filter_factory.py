@@ -4,9 +4,9 @@ from .. import utils
 from .. import cvgui
 
 BLUR_FILTER = 'blur'
-BILATERAL_FILTER = 'bilateral filter'
-GAUSSIAN_BLUR = 'Gaussian blur'
-MEDIAN_BLUR = 'median blur'
+BILATERAL_FILTER = 'bilateral_filter'
+GAUSSIAN_BLUR = 'gaussian_blur'
+MEDIAN_BLUR = 'median_blur'
 ERODE_FILTER = 'erode'
 
 
@@ -37,8 +37,8 @@ class Filter:
     def __init__(self, tbsWindow):
         self.title = ''
         self.tbsWindow = tbsWindow
-        self.fborderType = cvgui.Filter(Filter.BORDER_TYPE,
-                                        (0, Filter.BORDER_TYPE_QTY,
+        self.fborderType = cvgui.Trackbar(Filter.BORDER_TYPE,
+                                          (0, Filter.BORDER_TYPE_QTY,
                                          Filter.BORDER_TYPE_DEFAULT))
 
     def filtering(self, image):
@@ -50,7 +50,7 @@ class Blur(Filter):
     def __init__(self, tbsWindow, k=(0, 100, 1)):
         Filter.__init__(self, tbsWindow)
         self.title = BLUR_FILTER
-        self.fksize = cvgui.Filter(Filter.KERNEL_SIZE, k)
+        self.fksize = cvgui.Trackbar(Filter.KERNEL_SIZE, k)
         self.fanchor = None
         self.tbsWindow.add_filters(self.fksize, self.fborderType)
 
@@ -67,9 +67,9 @@ class Bilateral(Filter):
     def __init__(self, tbsWindow, d=(0, 10, -1), sc=(0, 300, 0), ss=(0, 300, 0)):
         Filter.__init__(self, tbsWindow)
         self.title = BILATERAL_FILTER
-        fd = cvgui.Filter(Filter.DIAMETER_PX, d)
-        fsc = cvgui.Filter(Filter.SIGMA_COLOR, sc)
-        fss = cvgui.Filter(Filter.SIGMA_SPACE, ss)
+        fd = cvgui.Trackbar(Filter.DIAMETER_PX, d)
+        fsc = cvgui.Trackbar(Filter.SIGMA_COLOR, sc)
+        fss = cvgui.Trackbar(Filter.SIGMA_SPACE, ss)
         self.tbsWindow.add_filters(fd, fsc, fss, self.fborderType)
 
     def filtering(self, image):
@@ -86,9 +86,9 @@ class GaussianBlur(Filter):
     def __init__(self, tbsWindow, k=(0, 100, 1), sx=(0, 300, 0), sy=(0, 300, 0)):
         Filter.__init__(self, tbsWindow)
         self.title = GAUSSIAN_BLUR
-        fksize = cvgui.Filter(Filter.KERNEL_SIZE, k)
-        fsx = cvgui.Filter(Filter.SIGMA_X, sx)
-        fsy = cvgui.Filter(Filter.SIGMA_Y, sy)
+        fksize = cvgui.Trackbar(Filter.KERNEL_SIZE, k)
+        fsx = cvgui.Trackbar(Filter.SIGMA_X, sx)
+        fsy = cvgui.Trackbar(Filter.SIGMA_Y, sy)
         self.tbsWindow.add_filters(fksize, fsx, fsy, self.fborderType)
 
     def filtering(self, image):
@@ -108,7 +108,7 @@ class MedianBlur(Filter):
     def __init__(self, tbsWindow, k=(0, 20, 2)):
         Filter.__init__(self, tbsWindow)
         self.title = MEDIAN_BLUR
-        fksize = cvgui.Filter(Filter.KERNEL_SIZE, k)
+        fksize = cvgui.Trackbar(Filter.KERNEL_SIZE, k)
         self.tbsWindow.add_filter(fksize)
 
     def filtering(self, image):
@@ -124,9 +124,9 @@ class Erode(Filter):
     def __init__(self, tbsWindow, sh=(0, 2, 0), k=(0, 100, 1), its=(0, 50, 0)):
         Filter.__init__(self, tbsWindow)
         self.title = ERODE_FILTER
-        fshape = cvgui.Filter(Filter.SHAPE_TYPE, sh)
-        fk = cvgui.Filter(Filter.KERNEL_SIZE, k)
-        fits = cvgui.Filter(Filter.ITERATIONS, its)
+        fshape = cvgui.Trackbar(Filter.SHAPE_TYPE, sh)
+        fk = cvgui.Trackbar(Filter.KERNEL_SIZE, k)
+        fits = cvgui.Trackbar(Filter.ITERATIONS, its)
         self.tbsWindow.add_filters(fshape, fk, fits, self.fborderType)
 
     def filtering(self, image):
@@ -140,6 +140,7 @@ class Erode(Filter):
 
 
 class FilterFactory:
+    # TODO SINGLETON !!!
     def __init__(self):
         pass
 

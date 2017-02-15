@@ -1,7 +1,7 @@
 import cv2
 
 
-class Filter:
+class Trackbar:
     def __init__(self, title, (min, max, value)):
         self.title = title
         self.min = min
@@ -9,7 +9,7 @@ class Filter:
         self.value = value
 
 
-class Trackbar:
+class TrackbarWindow:
     def __init__(self, win_name, *filters):
         self.win_name = win_name
         self.all_filters = []

@@ -30,6 +30,26 @@ def getBorderType(bt):
     return bts[bt]
 
 
+def applyFiltersChain(filtersChain):
+    filterFactory = FilterFactory.getFacktory()
+    for filter in filtersChain:
+        filterFactory.getFilter(filter)
+
+
+def isGray(selfm, cvImage):
+    """check for existance RGB bytes"""
+    if type(cvImage[0, 0]) is list:
+        return False
+    return True
+
+
+def prepareImage(self, cvImage, method):
+    edged = cv2.Canny(cvImage, 70, 500)
+    edged = cv2.dilate(edged, None, iterations=3)
+    edged = cv2.erode(edged, None, iterations=2)
+    return edged
+
+
 def getShape(sh):
     if sh == 0:
         return cv2.MORPH_RECT

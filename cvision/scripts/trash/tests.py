@@ -51,47 +51,47 @@ def getFilterName(typeBlur):
 
 def getTrackbarsForFilter(typeBlur):
     if typeBlur == 0:
-        fd = tb.Filter('DIAMETER_PX', (0, 10, -1))
-        fsigC = tb.Filter('SIG_COLOR', (0, 255, 0))
-        fsigS = tb.Filter('SIG_SPACE', (0, 255, 0))
+        fd = tb.Trackbar('DIAMETER_PX', (0, 10, -1))
+        fsigC = tb.Trackbar('SIG_COLOR', (0, 255, 0))
+        fsigS = tb.Trackbar('SIG_SPACE', (0, 255, 0))
         return fd, fsigC, fsigS
     elif typeBlur == 1:
-        fksize = tb.Filter('KSIZE', (0, 100, 1))
+        fksize = tb.Trackbar('KSIZE', (0, 100, 1))
         # twice because in trackbar module something bug if once, lol
         return fksize, fksize
     elif typeBlur == 2:
-        fddepth = tb.Filter('DDEPTH', (0, 8, -1))
-        fksize = tb.Filter('KSIZE', (0, 50, 1))
-        fnormalize = tb.Filter('NORMOLIZE', (0, 1, 0))
+        fddepth = tb.Trackbar('DDEPTH', (0, 8, -1))
+        fksize = tb.Trackbar('KSIZE', (0, 50, 1))
+        fnormalize = tb.Trackbar('NORMOLIZE', (0, 1, 0))
         return fddepth, fksize, fnormalize
     elif typeBlur == 3:
-        fshape = tb.Filter('SHAPE_TYPE', (0, 2, 0))
-        fk = tb.Filter('KSIZE', (0, 50, 1))
-        fits = tb.Filter('ITERS', (0, 50, 0))
+        fshape = tb.Trackbar('SHAPE_TYPE', (0, 2, 0))
+        fk = tb.Trackbar('KSIZE', (0, 50, 1))
+        fits = tb.Trackbar('ITERS', (0, 50, 0))
         return fshape, fk, fits
     elif typeBlur == 4:
-        fshape = tb.Filter('SHAPE_TYPE', (0, 2, 0))
-        fk = tb.Filter('KSIZE', (0, 50, 1))
-        fits = tb.Filter('ITERS', (0, 50, 0))
+        fshape = tb.Trackbar('SHAPE_TYPE', (0, 2, 0))
+        fk = tb.Trackbar('KSIZE', (0, 50, 1))
+        fits = tb.Trackbar('ITERS', (0, 50, 0))
         return fshape, fk, fits
     elif typeBlur == 5:
-        fshape = tb.Filter('SHAPE_TYPE', (0, 2, 0))
-        fk = tb.Filter('KSIZE', (0, 50, 1))
-        fddepth = tb.Filter('DDEPTH', (0, 50, 0))
+        fshape = tb.Trackbar('SHAPE_TYPE', (0, 2, 0))
+        fk = tb.Trackbar('KSIZE', (0, 50, 1))
+        fddepth = tb.Trackbar('DDEPTH', (0, 50, 0))
         return fshape, fk, fddepth
     elif typeBlur == 6:
-        fksize = tb.Filter('KSIZE', (0, 100, 1))
-        fsx = tb.Filter('SIGMAX', (0, 300, 0))
-        fsy = tb.Filter('SIGMAY', (0, 300, 0))
+        fksize = tb.Trackbar('KSIZE', (0, 100, 1))
+        fsx = tb.Trackbar('SIGMAX', (0, 300, 0))
+        fsy = tb.Trackbar('SIGMAY', (0, 300, 0))
         return fksize, fsx, fsy
     elif typeBlur == 7:
-        fksize = tb.Filter('KSIZE', (0, 100, 1))
+        fksize = tb.Trackbar('KSIZE', (0, 100, 1))
         return fksize, fksize
     elif typeBlur == 8:
-        fddepth = tb.Filter('DDEPTH', (0, 8, -1))
-        fk = tb.Filter('KSIZE', (0, 7, 1))
-        fsc = tb.Filter('SCALE', (0, 20, 1))
-        fdt = tb.Filter('DELTA', (0, 300, 0))
+        fddepth = tb.Trackbar('DDEPTH', (0, 8, -1))
+        fk = tb.Trackbar('KSIZE', (0, 7, 1))
+        fsc = tb.Trackbar('SCALE', (0, 20, 1))
+        fdt = tb.Trackbar('DELTA', (0, 300, 0))
         return fddepth, fk, fsc, fdt,
 
 def filteringImage(image, typeBlur, tbs):
@@ -173,11 +173,11 @@ def filteringImage(image, typeBlur, tbs):
     return image
 
 
-fTypeBlur = tb.Filter('TYPE_BLUR', (0, 8, 8))
-tbTB = tb.Trackbar('SELECT_TYPE_BLUR_FILTER', fTypeBlur)
+fTypeBlur = tb.Trackbar('TYPE_BLUR', (0, 8, 8))
+tbTB = tb.TrackbarWindow('SELECT_TYPE_BLUR_FILTER', fTypeBlur)
 oldTypeBlur = -1
 
-fBorderType = tb.Filter('BORDER_TYPE', (0, 8, 0))
+fBorderType = tb.Trackbar('BORDER_TYPE', (0, 8, 0))
 
 #cap = cv2.VideoCapture(1)
 while True:
@@ -195,7 +195,7 @@ while True:
     if typeBlur != oldTypeBlur:
         if 'tbs' in locals():
             cv2.destroyWindow(tbs.get_win_name())
-        tbs = tb.Trackbar(getFilterName(typeBlur))
+        tbs = tb.TrackbarWindow(getFilterName(typeBlur))
         tbs.add_filters(getTrackbarsForFilter(typeBlur))
         tbs.add_filter(fBorderType)
     oldTypeBlur = typeBlur

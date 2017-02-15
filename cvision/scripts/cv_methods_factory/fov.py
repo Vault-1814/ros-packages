@@ -1,6 +1,12 @@
 import rospy
 import cv2
-import cv_bridge
+import numpy as np
+import math
+import exmodules.utils as utils
+from collections import deque
+from cv_bridge import CvBridge, CvBridgeError
+from scipy.spatial import distance as dist
+from imutils import perspective
 from sensor_msgs.msg import Image
 from cvision.msg import Object
 from cvision.msg import ListObjects
@@ -15,44 +21,47 @@ class FovVision:
         self.imshapePX = [0, 0, 0]
         self.imshapeMM = [0, 0, 0]
         self.mmPerPx = 0
+
+        """ for instance, ['gaussian_blur', 'canny']
+            filters are added in forward order their applying to image
+        """
+        self.filtersChain = deque([], 5)    # may be stack ???
+        self.filtersChain.append('gaussian_blur')
+        self.filtersChain.append('canny')
+        self.filtersChain.rotate()
+
+
         # subscribers
         self.subCamera = rospy.Subscriber(
-            imageRectTopic, Image, self.cameraCallback, 1)
+            imageRectTopic, Image, self.cameraCallback)
         self.subPosition = rospy.Subscriber(
-            cameraPositionTopic, Position, self.positionCallback, 1)
+            cameraPositionTopic, Position, self.cameraPositionCallback, 1)
+
         # publisher
-        self.pubObjects = rospy.Publisher(
+        self.pubListObjects = rospy.Publisher(
             TOPIC_OBJECTS, ListObjects, queue_size=1)
         self.pubSeeing = rospy.Publisher(
             TOPIC_SEEING, Image, queue_size=1)
         self.pubInterimImage = rospy.Publisher(
             TOPIC_INTERIM_IMAGE, Image, queue_size=1)
 
+    def addFilterToChain(self, filterName):
+        self.filtersChain.append(filterName)
 
-    def isGray(selfm, cvImage):
-        """check for existance RGB bytes"""
-        if type(cvImage[0, 0]) is list:
-            return False
-        return True
+    def addFiltersChain(self, filtersChain):
+        self.filtersChain = filtersChain
 
-    def prepareImage(self, cvImage, method):
-        edged = cv2.Canny(cvImage, 70, 500)
-        edged = cv2.dilate(edged, None, iterations=3)
-        edged = cv2.erode(edged, None, iterations=2)
-        return edged
-
-    def getObjects(self, cvImage, detail=False):
+    def lookAt(self, cvImage, detail=False):
         listObjects = []
         # make sure that the image is graaaaay
-        if not self.isGray(cvImage):
+        if not utils.isGray(cvImage):
             cvImage = cv2.cvtColor(cvImage, cv2.COLOR_BGR2GRAY)
-        methodOfPreparation = 'canny'
-        wellPreparedImage = self.prepareImage(cvImage, methodOfPreparation)
+        util.applyFiltersChain(self.filtersChain)
         contours, hierarchy = cv2.findContours(
             wellPreparedImage, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         # TODO think about limitation for contours here
         for contour in contours:
-            obj = Object()
+            o = Object()
             if cv2.contourArea(contour) < 500:
                 continue
             box = cv2.minAreaRect(contour)
@@ -144,38 +153,12 @@ class FovVision:
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.25, (255, 0, 0), 1)
                     # ------------------
 
-        if not detail:
-            return list
-        else:
-            return list, image
-
-    def getMsgImage(self, cvImage):
-        bridge = cv_bridge.CvBridge()
-        imageMsg = None
-        try:
-            imageMsg = bridge.cv2_to_imgmsg(cvImage, 'bgr8')
-        except cv_bridge.CvBridgeError, e:
-            rospy.loginfo("Conversion failed: %s", e.message)
-        return imageMsg
-
     def cameraCallback(self, data):
-        # TODO type may be in ['imgmsg', 'cv2']
-        cvImage = data
-        listObjects, imageSeeing = self.getObjects(cvImage)
+        cvImage = utils.getCVImage(data)
+        listObjects, imageSeeing = self.lookAt(cvImage)
+        self.pubListObjects.publish(listObjects)
+        imageSeeingMsg = utils.getMsgImage(imageSeeing)
+        self.pubSeeing.publish()
 
-        # create the message and publish it to a topic
-        listObjectsMsg = ListObjects()
-        listObjectsMsg = listObjects
-        rospy.loginfo('Send %s objects', len(listObjectsMsg))
-        self.pubObjects.publish(listObjectsMsg)
-
-        # publish received image with details
-        imageMsg = self.getMsgImage(imageSeeing)
-        self.pubSeeing.publish(imageMsg)
-
-        # TODO publish interim results of process image
-        #interimImageMsg = self.getMsgImage(interimImage)
-        #self.pubSeeing.publish(interimImageMsg)
-
-    def positionCallback(self, data):
-
+    def cameraPositionCallback(self, pos, ori):
+        rospy.loginfo("cameraPositionCallback is run!")
