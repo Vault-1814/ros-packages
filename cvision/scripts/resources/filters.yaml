@@ -1,0 +1,25 @@
+bilateralFilter:
+  d: -1
+  sigmaColor: 0
+  sigmaSpace: 0
+  borderType: 4
+blur:
+  ksize: 1
+  anchore: None
+  borderType: 4
+boxFilter:
+  ddepth: -1
+  ksize: 1
+  anchor: None
+  normalize: True
+  borderType: 4
+gaussianBlur:
+  ksize: 1
+  sigmaX: 0
+  sigmaY: None
+  borderType: 4
+medianBlur:
+  ksize: 1
+canny:
+  threshold1: 70
+  threshold2: 250

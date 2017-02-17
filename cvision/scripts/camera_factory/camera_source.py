@@ -1,6 +1,4 @@
 #!/usr/bin/env python
-import config
-
 
 SOURCE_USBCAM = 'usb_cam'
 SOURCE_CVCAMERA = 'cv_camera'
@@ -9,6 +7,7 @@ SOURCE_OPENNI2 = 'openni2'
 TOPIC_USB_CAM_IMAGE_RAW = '/usb_cam/image_raw'
 TOPIC_CV_CAMERA_IMAGE_RAW = '/cvcamera/image_raw'
 TOPIC_OPENNI2_IMAGE_RAW = '/camera/rgb/image_raw'
+
 
 class CameraSource:
     def getTopic(self):
@@ -30,17 +29,25 @@ class OpenNI2(CameraSource):
         return TOPIC_OPENNI2_IMAGE_RAW
 
 
-class CameraFactory:
+class CameraFactory(object):
     """
     sourceType may be in ['usb_cam', 'cv_camera', 'openni2']
     :returns raw image topics
     """
+    __instance = None
+
+    def __new__(cls, val):
+        if CameraFactory.__instance is None:
+            CameraFactory.__instance = object.__new__(cls)
+        CameraFactory.__instance.val = val
+        return CameraFactory.__instance
+
     def getCameraSource(self, sourceType):
         if not sourceType:
             raise IOError
-        if sourceType == config.SOURCE_USBCAM:
+        if sourceType == SOURCE_USBCAM:
             return USBCAM()
-        elif sourceType == config.SOURCE_CVCAMERA:
+        elif sourceType == SOURCE_CVCAMERA:
             return CvCamera()
-        elif sourceType == config.SOURCE_OPENNI2:
+        elif sourceType == SOURCE_OPENNI2:
             return OpenNI2()
