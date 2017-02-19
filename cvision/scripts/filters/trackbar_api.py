@@ -1,13 +1,22 @@
 import cv2
 from enum import Enum
-from configuration_menager import FilterInitValues, TrackbarInitValues
+
+from configuration_menager import FilterConfigReader
 
 
 class Field(Enum):
     KERNEL_SIZE = 'ksize'
     THRESHOLD_1 = 'threshold1'
     THRESHOLD_2 = 'threshold2'
-
+    BORDER_TYPE = 'borderType'
+    D = 'd'
+    SIGMA_COLOR = 'sigmaColor'
+    SIGMA_SPACE = 'sigmaSpace'
+    ANCHOR = 'anchor'
+    DDEPTH = 'ddepth'
+    NORMALIZE = 'normalize'
+    SIGMA_X = 'sigmaX'
+    SIGMA_Y = 'sigmaY'
     def __init__(self, title):
         self.title = title
 
@@ -56,7 +65,7 @@ class TrackbarFactory(object):
 
     def getTrackbar(self, fieldName):
         if Field.isDefined(fieldName):
-            initValues = TrackbarInitValues().getValues(fieldName)
+            initValues = FilterConfigReader().getValues(fieldName)
             return Trackbar(fieldName, initValues)
         return -2
 
@@ -81,10 +90,21 @@ class TrackbarWindow:
         pass
 
 
+class TrackbarWindowBuilder:
+    """trackbar names and win name must be in config files"""
+    def createTrackbarWindow(self, winName, trackbarNames):
+        tbWindow = TrackbarWindow(winName)
+        tbFactory = TrackbarFactory()
+        for tName in trackbarNames:
+            tb = tbf.getTrackbar(tName)
+            tbWindow.addTrackbar(tb)
+        return tbWindow
+
 if __name__ == '__main__':
+
+    tbw = TrackbarWindow('blur')
     tbf = TrackbarFactory()
     tb = tbf.getTrackbar(Field.KERNEL_SIZE.value())
-    tbw = TrackbarWindow('blur')
     tbw.addTrackbar(tb)
 
     while True:

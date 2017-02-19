@@ -1,25 +1,87 @@
 bilateralFilter:
-  d: -1
-  sigmaColor: 0
-  sigmaSpace: 0
-  borderType: 4
+  filter:
+    d: 5
+    sigmaColor: 300
+    sigmaSpace: 300
+    borderType: 4
+  trackbar:
+    d:
+      - -1
+      - [-1, 100, -1]
+    sigmaColor:
+      - 0
+      - [0, 500, 0]
+    sigmaSpace:
+      - 0
+      - [0, 500, 0]
+    borderType:
+      - 4
+      - [0, 8, 1]
 blur:
-  ksize: 1
-  anchore: None
-  borderType: 4
+  filter:
+    ksize: !!python/tuple [5, 5]
+    anchor: null
+    borderType: 1
+  trackbar:
+    ksize:
+      - 1
+      - [1, 100, 1]
+    anchore:
+      - null
+      - [0, 0, 0]
+    borderType:
+      - 4
+      - [0, 8, 1]
 boxFilter:
-  ddepth: -1
-  ksize: 1
-  anchor: None
-  normalize: True
-  borderType: 4
+  filter:
+    ddepth: -1
+    ksize: !!python/tuple [5, 5]
+    anchor: null
+    normalize: True
+    borderType: 1
+  trackbar:
+    ddepth:
+      - -1
+      - [-1, 2, -1]
+    ksize:
+      - 1
+      - [1, 100, 1]
+    anchor:
+      - null
+      - [0, 0, 0]
+    normalize:
+      - True
+      - [0, 1, 1]
+    borderType:
+      - 4
+      - [0, 8, 1]
 gaussianBlur:
-  ksize: 1
-  sigmaX: 0
-  sigmaY: None
-  borderType: 4
+  filter:
+    ksize: !!python/tuple [5, 5]
+    sigmaX: 1
+    sigmaY: 0
+    borderType: 1
+  trackber:
+    ksize:
+      - 1
+      - [1, 100, 1]
+    sigmaX:
+      - 0
+      - [0, 500, 0]
+    sigmaY:
+      - null
+      - [0, 500, 0]
+    borderType:
+      - 4
+      - [0, 8, 1]
 medianBlur:
-  ksize: 1
-canny:
-  threshold1: 70
-  threshold2: 250
+  filter:
+    ksize: 5
+    borderType: 1
+  trackbar:
+    ksize:
+    - 1
+    - [1, 100, 1]
+    borderType:
+    - 4
+    - [0, 8, 1]

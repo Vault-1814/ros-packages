@@ -1,9 +1,11 @@
 import cv2
 from enum import Enum
-from configuration_menager import FilterInitValues
+
+from trackbar_api import Field
+from configuration_menager import FilterConfigReader
 
 
-class FilterTitle(Enum):
+class FilterName(Enum):
     BILATERAL_FILTER = 'bilateralFilter'
     BLUR = 'blur'
     BOX_FILTER = 'boxFilter'
@@ -18,20 +20,112 @@ class FilterTitle(Enum):
 
     @staticmethod
     def isDefined(title):
-        fields = FilterTitle.__members__.values()
+        fields = FilterName.__members__.values()
         for f in fields:
             if title == f.value():
                 return True
         return False
 
 
+"""
+    Filters Config
+"""
+class FilterConfig:
+    title = ''
+    borderType = None
+
+    def __init__(self, title, config):
+        self.title = title
+        self.borderType = config[Field.BORDER_TYPE.value()]
+
+
+class BilateralFilterConfig(FilterConfig):
+    d = None
+    sigmaColor = None
+    sigmaSpace = None
+
+    def __init__(self, config):
+        FilterConfig.__init__(self, FilterName.BILATERAL_FILTER.value(), config)
+        self.d = config[Field.D.value()]
+        self.sigmaColor = config[Field.SIGMA_COLOR.value()]
+        self.sigmaSpace = config[Field.SIGMA_SPACE.value()]
+
+
+class BlurConfig(FilterConfig):
+    ksize = None
+    anchor = None
+
+    def __init__(self, config):
+        FilterConfig.__init__(self, FilterName.BLUR.value(), config)
+        self.ksize = config[Field.KERNEL_SIZE.value()]
+        self.anchor = config[Field.ANCHOR.value()]
+
+
+class BoxFilterConfig(FilterConfig):
+    ddepth = None
+    ksize = None
+    anchor = None
+    normalize = None
+
+    def __init__(self, config):
+        FilterConfig.__init__(self, FilterName.BOX_FILTER.value(), config)
+        self.ddepth = config[Field.DDEPTH.value()]
+        self.ksize = config[Field.KERNEL_SIZE.value()]
+        self.anchor = config[Field.ANCHOR.value()]
+        self.normalize = config[Field.NORMALIZE.value()]
+
+
+class GaussianBlurConfig(FilterConfig):
+    ksize = None
+    sigmaX = None
+    sigmaY = None
+
+    def __init__(self, config):
+        FilterConfig.__init__(self, FilterName.GAUSSIAN_BLUR.value(), config)
+        self.ksize = config[Field.KERNEL_SIZE.value()]
+        self.sigmaX = config[Field.SIGMA_X.value()]
+        self.sigmaY = config[Field.SIGMA_Y.value()]
+
+
+class MedianBlurConfig(FilterConfig):
+    ksize = None
+
+    def __init__(self, config):
+        FilterConfig.__init__(self, FilterName.MEDIAN_BLUR.value(), config)
+        self.ksize = config[Field.KERNEL_SIZE.value()]
+
+
+class FilterConfigFactory(object):
+
+    def __init__(self):
+        pass
+
+    def getFilterConfig(self, filterName, mode):
+        config = FilterConfigReader().read(filterName, mode)
+        if FilterName.BILATERAL_FILTER.value() == filterName:
+            return BilateralFilterConfig(config)
+        elif FilterName.BLUR.value() == filterName:
+            return BlurConfig(config)
+        elif FilterName.BOX_FILTER.value() == filterName:
+            return BoxFilterConfig(config)
+        elif FilterName.GAUSSIAN_BLUR.value() == filterName:
+            return GaussianBlurConfig(config)
+        elif FilterName.MEDIAN_BLUR.value() == filterName:
+            return MedianBlurConfig(config)
+
+
+"""
+    Filters
+"""
+
+
 class Filter:
     _title = None
     _borderType = None
 
-    def __init__(self, params):
-        self._title = params.title
-        self._borderType = params.borderType
+    def __init__(self, config):
+        self._title = config.title
+        self._borderType = config.borderType
 
     def apply(self, imageSrc):
         pass
@@ -42,29 +136,29 @@ class BilateralFilter(Filter):
     _sigmaColor = None
     _sigmaSpace = None
 
-    def __init__(self, params):
-        Filter.__init__(self, params)
-        self._d = params.d
-        self._sigmaColor = params.sigmaColor
-        self._sigmaSpace = params.sigmaSpace
+    def __init__(self, config):
+        Filter.__init__(self, config)
+        self._d = config.d
+        self._sigmaColor = config.sigmaColor
+        self._sigmaSpace = config.sigmaSpace
 
     def apply(self, imageSrc):
         return cv2.bilateralFilter(imageSrc, self._d, self._sigmaColor,
                                    self._sigmaSpace, None, self._borderType)
 
+
 class Blur(Filter):
     _ksize = None
     _anchor = None
 
-    def __init__(self, params):
-        Filter.__init__(self, params)
-        self._ksize = params.ksize
-        self._anchor = params.anchor
-        self._borderType = params.borderType
+    def __init__(self, config):
+        Filter.__init__(self, config)
+        self._ksize = config.ksize
+        self._anchor = config.anchor
+        self._borderType = config.borderType
 
     def apply(self, imageSrc):
-        return cv2.blur(imageSrc, self._ksize, None,
-                        self._anchor, self._borderType)
+        return cv2.blur(imageSrc, self._ksize, None, self._anchor, self._borderType)
 
 
 class BoxFilter(Filter):
@@ -73,12 +167,12 @@ class BoxFilter(Filter):
     _anchor = None
     _normalize = None
 
-    def __init__(self, params):
-        Filter.__init__(self, params)
-        self._ddepth = params.ddepth
-        self._ksize = params.ksize
-        self._anchor = params.anchor
-        self._normalize = params.normalize
+    def __init__(self, config):
+        Filter.__init__(self, config)
+        self._ddepth = config.ddepth
+        self._ksize = config.ksize
+        self._anchor = config.anchor
+        self._normalize = config.normalize
 
     def apply(self, imageSrc):
         return cv2.boxFilter(imageSrc, self._ddepth, self._ksize, None,
@@ -90,11 +184,11 @@ class GaussianBlur(Filter):
     _sigmaX = None
     _sigmaY = None
 
-    def __init__(self, params):
-        Filter.__init__(self, params)
-        self._ksize = params.ksize
-        self._sigmaX = params.sigmaX
-        self._sigmaY = params.sigmaY
+    def __init__(self, config):
+        Filter.__init__(self, config)
+        self._ksize = config.ksize
+        self._sigmaX = config.sigmaX
+        self._sigmaY = config.sigmaY
 
     def apply(self, imageSrc):
         return cv2.GaussianBlur(imageSrc, self._ksize, self._sigmaX, None,
@@ -104,78 +198,12 @@ class GaussianBlur(Filter):
 class MedianBlur(Filter):
     _ksize = None
 
-    def __init__(self, params):
-        Filter.__init__(self, params)
-        self._ksize = params.ksize
+    def __init__(self, config):
+        Filter.__init__(self, config)
+        self._ksize = config.ksize
 
     def apply(self, imageSrc):
         return cv2.medianBlur(imageSrc, self._ksize)
-
-
-"""
-    Filter Parameters
-"""
-class FilterParameters:
-    title = ''
-    borderType = None
-
-
-class BilateralFilterParameters(FilterParameters):
-    d = None
-    sigmaColor = None
-    sigmaSpace = None
-
-
-class BlurParameters(FilterParameters):
-    ksize = None
-    anchore = None
-
-
-class BoxFilerParameters(FilterParameters:
-    ddepth = None
-    ksize = None
-    anchor = None
-    normalize = None
-
-
-class GausssianBlurParameters(FilterParameters):
-    _ksize = None
-    _sigmaX = None
-    _sigmaY = None
-
-
-class MedianBlurParameters(FilterParameters):
-    ksize = None
-
-
-class FilterParametersFactory:
-    instance = None
-
-    def __new__(cls):
-        if FilterFactory.instance is None:
-            FilterFactory.instance = object.__new__(cls)
-        return FilterFactory.instance
-
-    def getParameters(self, filterTitle):
-        pass
-
-class NOOOOOOOOOOOFilterParameters(Parameters):
-    def getParameters(self, filterTitle, mode):
-        params = Parameters()
-        if FilterTitle.isDefined(filterTitle):
-            if mode: # configur by trackbars
-                flrFilds = FilterFields.getFields(filterTitle)
-                tbrWin = TrackbarWindow(filterTitle)
-                tbrs = []
-                for field in flrFilds:
-                    initValues = TrackbarInitValues.getValues(field)
-                    tbr = Trackbar(field, initValues)
-                    tbrWin.addTrackbar(tbr)
-                    params = tbrWin.getTrackbarVlues()
-            else: # configure by config file
-                flrInit = FilterInitValues()
-                values = flrInit.getValues(filterTitle)
-        return params
 
 
 class FilterFactory(object):
@@ -187,24 +215,33 @@ class FilterFactory(object):
         return FilterFactory.instance
 
     def __init__(self):
-        self._filterParameters = FilterParameters()
+        self.flrCfgFactory = FilterConfigFactory()
 
-    def getFilter(self, filterTitle, mode=1):
-        if FilterTitle.isDefined(filterTitle):
-            params = self._filterParameters.getParameters(filterTitle, mode)
-            return {
-                FilterTitle.BILATERAL_FILTER: FilterBuilder(filterTitle)????#BilateralFilter(params),
-                FilterTitle.BLUR: Blur(params),
-                FilterTitle.BOX_FILTER: BoxFilter(params),
-                FilterTitle.GAUSSIAN_BLUR: GaussianBlur(params),
-                FilterTitle.MEDIAN_BLUR: MedianBlur(params)
-            }[filterTitle]
-
+    def getFilter(self, filterName, mode=0):
+        if FilterName.isDefined(filterName):
+            print('getFilter: ' + filterName)
+            flrConfig = self.flrCfgFactory.getFilterConfig(filterName, mode)
+            if FilterName.BILATERAL_FILTER.value() == filterName:
+                return BilateralFilter(flrConfig)
+            elif FilterName.BLUR.value() == filterName:
+                return Blur(flrConfig)
+            elif FilterName.BOX_FILTER.value() == filterName:
+                return BoxFilter(flrConfig)
+            elif FilterName.GAUSSIAN_BLUR.value() == filterName:
+                return GaussianBlur(flrConfig)
+            elif FilterName.MEDIAN_BLUR.value() == filterName:
+                return MedianBlur(flrConfig)
         return -1
 
+if __name__ == '__main__':
+    image = cv2.imread('/media/data/evo/py_projects/cv/raw_images/3.jpg')
+    image = cv2.resize(image, (640, 480))
 
-class FilterBuilder:
-    FilterParameters()
-    Filter()
+    flrFactory = FilterFactory()
+    filterBlur = flrFactory.getFilter(FilterName.MEDIAN_BLUR.value())
+    image = filterBlur.apply(image)
 
-
+    while True:
+        cv2.imshow('0', image)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break

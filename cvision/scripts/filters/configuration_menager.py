@@ -1,12 +1,14 @@
-from enum import Enum
 import yaml
-import os
+from enum import Enum
 
+from scripts.filters.filters import *
+
+# TODO doing better it
 PATH = '/home/kirix/catkin_ws/src/cvision/scripts/'
 
-class ConfigFiles(Enum):
-    TRACKBARS_INIT_FILE_NAME = PATH + 'resources/trackbars.yaml'
-    FILTERS_INIT_FILE_NAME = PATH + 'resources/filters.yaml'
+
+class ConfigFileName(Enum):
+    FILTER_INIT_CONFIG_FILE_NAME = PATH + 'resources/filters.yaml'
 
     def __init__(self, title):
         self.title = title
@@ -14,12 +16,13 @@ class ConfigFiles(Enum):
     def value(self):
         return self.title
 
+
 class File:
     def __init__(self, file):
         self.file = file
 
 
-class ConfigFileReader(File):
+class YAMLFileReader(File):
     def __init__(self, file):
         File.__init__(self, file)
 
@@ -29,7 +32,7 @@ class ConfigFileReader(File):
         return data
 
 
-class ConfigFileWriter(File):
+class YAMLFileWriter(File):
     def __init__(self, file):
         File.__init__(self, file)
 
@@ -37,25 +40,30 @@ class ConfigFileWriter(File):
         pass
 
 
-class Values:
-    def getValues(self, title):
+class ConfigReader:
+    def __init__(self):
         pass
 
+    def read(self, name, mode):
+        file = open(ConfigFileName.FILTER_INIT_CONFIG_FILE_NAME.value(), 'r')
+        cfr = YAMLFileReader(file)
+        params = cfr.read()
+        return params
 
-class FilterInitValues(Values):
+
+class FilterConfigReader(ConfigReader):
+    _FILTER_FIELD = 'filter'
+    _TRACKBAR_FIELD = 'trackbar'
+
     """ read from config file parameters for certain filter"""
-    def getValues(self, filterName):
-        file = open(ConfigFiles.FILTERS_INIT_FILE_NAME, 'r')
-        cfr = ConfigFileReader(file)
-        flrs_param = cfr.read()
-        flr_param_pairs = flrs_param[filterName]
-        return flr_param_pairs.values()
+    def read(self, filterName, mode):
+        params = ConfigReader.read(self, filterName, mode)
+        if mode:
+            return params[filterName][self._TRACKBAR_FIELD]
+        else:
+            return params[filterName][self._FILTER_FIELD]
 
-
-class TrackbarInitValues(Values):
-    """ read from config file init values for certain field-trackbar"""
-    def getValues(self, fieldName):
-        file = open(ConfigFiles.TRACKBARS_INIT_FILE_NAME.value(), 'r')
-        cfr = ConfigFileReader(file)
-        fields = cfr.read()
-        return fields[fieldName]
+if __name__ == '__main__':
+    fic = FilterConfigReader()
+    p = fic.read(FilterName.BLUR.value(), 0)
+    print(p)
