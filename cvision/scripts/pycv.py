@@ -2,6 +2,7 @@ import rospy
 import cv2
 import numpy as np
 import math
+from client import *
 from cv_bridge import CvBridge, CvBridgeError
 from scipy.spatial import distance as dist
 from imutils import perspective
@@ -22,13 +23,15 @@ class Recognize:
         self.imshape_px = [0, 0, 0]
         self.imshape_mm = [0, 0, 0]
 
-        self.subscriber_camera = rospy.Subscriber(source, Image, self.cameraCallback, queue_size=1)
-        self.subscriber_orientation = rospy.Subscriber('/orientation', Orientation, self.orientationCallback, queue_size=1)
-
+        self.subscriber_camera = rospy.Subscriber(source, Image,
+                                                  self.cameraCallback)
+        self.subscriber_orientation = rospy.Subscriber('/orientation',
+                                                       Orientation,
+                                                       self.orientationCallback,
+                                                       queue_size=1)
 
         self.pub_main = rospy.Publisher('list_objects', ListObjects, queue_size=1)
         self.pub_view_main = rospy.Publisher('see_main', Image, queue_size=1)
-        self.pub_view_depth = rospy.Publisher('see_depth', Image, queue_size=1)
 
     def getWHImage(self, l, hfov=58, vfov=45, dfov=70):
         """
@@ -76,6 +79,15 @@ class Recognize:
             rospy.loginfo("Conversion failed: %s", e.message)
         return msg_image
 
+    def unit_vector(self, vector):
+        """ Returns the unit vector of the vector.  """
+        return vector / np.linalg.norm(vector)
+
+    def angle_between(self, v1, v2):
+        v1_u = self.unit_vector(v1)
+        v2_u = self.unit_vector(v2)
+        return np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0))
+
     def getListObjects(self, image, detail=False):
         """ finds objects on the image, analizing it, push to the list
             if canvas is None:
@@ -85,13 +97,11 @@ class Recognize:
                     where on the canvas would be drawn contours and etc.
         """
         list = []
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        #gray = cv2.GaussianBlur(gray, (5, 5), 0)
-        gray = cv2.medianBlur(image, 15)
-        edged = cv2.Canny(gray, 70, 250)
+        edged = cv2.Canny(image, 70, 190)
         edged = cv2.dilate(edged, None, iterations=3)
         edged = cv2.erode(edged, None, iterations=2)
-        contours, hierarchy = cv2.findContours(edged, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        contours, hierarchy = cv2.findContours(edged, cv2.RETR_EXTERNAL,
+                                               cv2.CHAIN_APPROX_SIMPLE)
         for contour in contours:
             o = Object()
             if cv2.contourArea(contour) < 600:
@@ -129,20 +139,35 @@ class Recognize:
             ratio = self.imshape_mm[2] / self.imshape_px[2]
             dD = math.sqrt(dA ** 2 + dB ** 2)
             dimD = dD * ratio
-            #rospy.loginfo("O_diag_mm = %s", dimD)
             alpha = math.atan2(dB, dA)
-            dimA = dimD * math.sin(alpha)
-            dimB = dimD * math.cos(alpha)
-            s = "(%d,%d)\t(%d,%d)\n(%d,%d)\t(%d,%d)\t(%d,%d)" % (self.imshape_mm[0], self.imshape_mm[1],
-                                                                 self.imshape_px[0], self.imshape_px[1],
-                                                                    x0, y0, xcc, ycc, yoc, xoc)
-            #rospy.loginfo(s)
+            dimA = dimD * math.cos(alpha)
+            dimB = dimD * math.sin(alpha)
+
+            # orientation object
+            xVector = (0, -self.imshape_px[0])
+            amax, bmax = '', ''
+
+            aAngle, bAngle = 0, 0
+
+            rospy.loginfo(str(int(dA)) + ' ' + str(int(dB)))
+            if dA >= dB:
+                aVector = (tltrX - blbrX, tltrY - blbrY)
+                angle = -self.angle_between(xVector, aVector)
+            else:
+                bVector = (tlblX - trbrX, tlblY - trbrY)
+                angle = -self.angle_between(xVector, bVector)
+
+            if abs(angle) > math.pi / 2:
+                angle += math.pi
+
             # ***
             # TODO detecting and analezing objects
             o.shape = 'undefined'
             o.dimensions = (dimA*0.001, dimB*0.001, 1)
             o.coordinates_center_frame = (ycc*ratio*0.001, xcc*ratio*0.001, 0)
-            o.coordinates_frame = (tltrX*ratio*0.001, tlblY*ratio*0.001, 0)
+            o.orientation = (0, angle, 0)
+
+            sendObject(o.orientation, o.coordinates_center_frame)
             #info = "Height:%d\tWidth:%d\n" % (dimA, dimB)
             #rospy.loginfo(info)
             list.append(o)
@@ -153,15 +178,40 @@ class Recognize:
                 cv2.drawContours(image, [box.astype("int")], -1, (0, 255, 0), 1)
                 # draw corner points
                 for (x, y) in box:
+                    # top left corner of a object
+                    cv2.circle(image, (int(tl[0]), int(tl[1])), 5, (255, 0, 0), 2)
+
+                    cv2.putText(image, "{0:.1f}".format(angle*180/math.pi),
+                                (int(0 + 50), int(0 + 25)),
+                                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+
+                    # BLUE point in a center frame
                     cv2.circle(image, (int(x0), int(y0)), 5, (0, 0, 255), 2)
-                    cv2.circle(image, (int(xcc), int(ycc)), 5, (0, 255, 0), 2)
+                    #center of object in center coordinate system
+                    #cv2.circle(image, (int(xcc), int(ycc)), 5, (0, 255, 0), 2)
+                    # red point of a center object
                     cv2.circle(image, (int(xoc), int(yoc)), 5, (255, 0, 0), 2)
 
+                    # cross in a center frame
                     cv2.line(image, (0, y0), (self.imshape_px[1], y0), (0, 0, 255), 1)
                     cv2.line(image, (x0, 0), (x0, self.imshape_px[0]), (0, 0, 255), 1)
 
+                    # cross in a center object
+                    # dA
                     cv2.line(image, (int(tltrX), int(tltrY)), (int(blbrX), int(blbrY)), (255, 0, 255), 1)
+                    # dB
                     cv2.line(image, (int(tlblX), int(tlblY)), (int(trbrX), int(trbrY)), (255, 0, 255), 1)
+
+                    cv2.putText(image, 'A',
+                                (int(tltrX), int(tltrY)),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+                    cv2.putText(image, 'B',
+                                (int(tlblX), int(tlblY)),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+                    cv2.putText(image, 'X',
+                                (int(x0), int(15)),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+
                     """
                     # draw the midpoints on the image
                     cv2.circle(image, (int(tltrX), int(tltrY)), 5, (255, 0, 0), -1)
@@ -187,14 +237,14 @@ class Recognize:
         if not detail:
             return list
         else:
-            return list, image, edged
+            return list, image
 
     def cameraCallback(self, data):
         if self.is_ros_msg:
             cv_image = self.getCVImage(data)
         else:
             cv_image = data
-        list, imageex, edged = self.getListObjects(cv_image, True)
+        list, imageex = self.getListObjects(cv_image, True)
         # message for futher work
         msg = ListObjects()
         msg = list
