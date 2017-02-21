@@ -4,8 +4,10 @@ import rospy
 from cvision.msg import Object
 from cvision.msg import ListObjects
 
+import time, cv2
 
 def callback(data):
+    cv2.imwrite()
     """data.list contains list of objects from the table"""
     list = data.list
     log_string = ''
