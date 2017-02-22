@@ -9,7 +9,7 @@ from cvision.msg import Object
 from cvision.msg import ListObjects
 from cvision.msg import Orientation
 from sensor_msgs.msg import Image
-from pycv import Recognize
+from pycv_ok import Recognize
 
 
 # 0 is xtion, 1 is usb_cam topic, 2 is opencv source
@@ -57,6 +57,7 @@ def talker():
     #Recognize(camera_topic, True)
     rospy.loginfo(camera_topic)
     Recognize(camera_topic, True)
+
 
     while not rospy.is_shutdown():
         # opencv camera read
