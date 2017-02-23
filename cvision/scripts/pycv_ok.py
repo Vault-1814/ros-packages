@@ -4,6 +4,7 @@ import rospy
 
 import libs.utils as u
 from pymeasuring import Measuring
+from client import *
 
 from sensor_msgs.msg import Image
 from cvision.msg import Object
@@ -33,6 +34,7 @@ class Recognize:
     def init(self):
         self.measuring = Measuring(self.imageInfo)
         rospy.loginfo('Measuring init complete.')
+        print(imageInfo)
 
     def cameraCallback(self, data):
         # TODO глупо вычислять все время shape !!!

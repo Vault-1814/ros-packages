@@ -5,7 +5,7 @@ import numpy as np
 import math
 from scipy.spatial import distance as dist
 from imutils import perspective
-
+from client import *
 import libs.geometry as g
 import libs.utils as u
 from cvision.msg import Object
@@ -19,7 +19,11 @@ class Measuring:
 
     def __init__(self, imageInfo):
         global DISSIMILARITY_THRESHOLD
-        DISSIMILARITY_THRESHOLD = 1
+        DISSIMILARITY_THRESHOLD = 5 
+
+        with np.load('blue10.npz') as X:
+            self.c = [X[i] for i in X]
+        rospy.loginfo('blue blk is load!')
 
         # image size
         x, y, _ = imageInfo['shape']
@@ -73,8 +77,10 @@ class Measuring:
         dimPx = (dX, dY, 0)
         dimMm = (dimX, dimY, 0)
         dimM = (dimX * MM_TO_M, dimY * MM_TO_M, 0)
-        objCRFinM = (objCRF[0] * MM_TO_M, objCRF[1] * MM_TO_M, 0)
+        objCRFinM = (objCRF[1] * MM_TO_M, objCRF[0] * MM_TO_M, 0)
         objOrientation = (0, angle, 0)
+	"sent to ALEX server"
+	sendObject(objOrientation, objCRFinM)
         "packing object"
         obj.shape = ''
         obj.dimensions = dimM
@@ -131,10 +137,8 @@ class Measuring:
         edged = cv2.dilate(edged, None, iterations=3)
         edged = cv2.erode(edged, None, iterations=2)
 
-        with np.load('blue1.npz') as X:
-            c = [X[i] for i in X]
 
-        screw_contour = c[0]
+        screw_contour = self.c[0]
         contours, hierarchy = cv2.findContours(edged.copy(), cv2.RETR_EXTERNAL,
                                                   cv2.CHAIN_APPROX_SIMPLE)
         cv2.drawContours(image, contours, -1, (0, 255, 0), 3)
@@ -145,7 +149,7 @@ class Measuring:
             if cv2.contourArea(contour) < 600:
                 continue
             ret = cv2.matchShapes(contour, screw_contour, 1, 0)
-            print(ret)
+            # print(ret)
             if obj_screw is None or ret < obj_screw[0]:
                 obj_screw = (ret, contour)
             draw_contours.append((ret, contour))

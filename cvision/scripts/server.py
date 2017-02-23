@@ -1,21 +1,22 @@
 #!/usr/bin/env python
-
-from cvision.srv import CameraFrame
 import rospy
+import time
+from cvision.srv import Camera
+from cvision.msg import Object
+from cvision.msg import ListObjects
+from cvision.msg import Orientation
 
-NODE_NAME = 'send_object_server'
+
+NODE_NAME = 'object_server'
 SERVICE_NAME = 'send_object'
 
 def handle(req):
-    print(req.angle, req.position)
-    return 1
+    return req.state
 
-
-def sendObjectData():
-    rospy.init_node(NODE_NAME)
-    s = rospy.Service(SERVICE_NAME, CameraFrame, handle)
+def startCameraServer():
     print "Ready for send!"
     rospy.spin()
 
+
 if __name__ == "__main__":
-    sendObjectData()
+    CameraSever()

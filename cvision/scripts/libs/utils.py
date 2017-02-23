@@ -1,7 +1,6 @@
 import rospy
 import math
 import numpy as np
-from enum import Enum
 from cv_bridge import CvBridge, CvBridgeError
 
 
