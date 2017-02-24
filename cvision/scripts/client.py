@@ -23,9 +23,9 @@ if __name__ == "__main__":
     if len(sys.argv) == 7:
         angle = [int(sys.argv[1]), int(sys.argv[2]), int(sys.argv[3])]
         position = [int(sys.argv[4]), int(sys.argv[5]), int(sys.argv[6])]
-        else:
-            print usage()
-            sys.exit(1)
-        print "Requesting %s+%s"%(angle, position)
-        print sendObject(angle, position)
+    else:
+        print usage()
+        sys.exit(1)
+    print "Requesting %s+%s"%(angle, position)
+    print sendObject(angle, position)
 

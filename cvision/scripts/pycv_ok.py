@@ -34,7 +34,7 @@ class Recognize:
     def init(self):
         self.measuring = Measuring(self.imageInfo)
         rospy.loginfo('Measuring init complete.')
-        print(imageInfo)
+        print(self.imageInfo)
 
     def cameraCallback(self, data):
         # TODO глупо вычислять все время shape !!!
@@ -56,7 +56,7 @@ class Recognize:
 
     def orientationCallback(self, data):
         l = data.length
-        imageDim = u.getDimImage(l, 54.5, 42.3, 66.17)
+        imageDim = u.getDimImage(l, 0, 0, 78) # 54.5, 42.3, 66.17
         if self.imageInfo['shape'] is not None:
             self.imageInfo['ratio'] = u.getRatio(self.imageInfo['shape'], imageDim)
             rospy.loginfo('Computed ratios are ' + str(self.imageInfo['ratio']))

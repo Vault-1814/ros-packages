@@ -2,7 +2,7 @@ import rospy
 import cv2
 import numpy as np
 import math
-from client import *
+from scripts.client import *
 from cv_bridge import CvBridge, CvBridgeError
 from scipy.spatial import distance as dist
 from imutils import perspective

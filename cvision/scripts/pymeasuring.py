@@ -3,6 +3,7 @@ import rospy
 import cv2
 import numpy as np
 import math
+import collections
 from scipy.spatial import distance as dist
 from imutils import perspective
 from client import *
@@ -13,17 +14,19 @@ from cvision.msg import ListObjects
 from cvision.msg import Orientation
 
 MM_TO_M = 0.001
+AREA_MIN = 2000
+AREA_MAX = 80000
 
 
 class Measuring:
 
     def __init__(self, imageInfo):
         global DISSIMILARITY_THRESHOLD
-        DISSIMILARITY_THRESHOLD = 5 
-
-        with np.load('blue10.npz') as X:
+        DISSIMILARITY_THRESHOLD = 1
+        objCnt = 'squar50.npz'
+        with np.load(objCnt) as X:
             self.c = [X[i] for i in X]
-        rospy.loginfo('blue blk is load!')
+        rospy.loginfo('CNT IS LOADED!')
 
         # image size
         x, y, _ = imageInfo['shape']
@@ -31,7 +34,7 @@ class Measuring:
         # ratio [mm/px]
         self.ratioHFOV = imageInfo['ratio'][0]
         self.ratioVFOV = imageInfo['ratio'][1]
-        self.ratioDFOV = imageInfo['ratio'][2]
+        self.ratioDFOV = imageInfo['ratio'][2]  # 0.3058082527
         # center RF
         self.CRF = (y / 2, x / 2)
         self.imageRF = ((0, -self.CRF[1]), (self.CRF[0], 0))
@@ -74,13 +77,19 @@ class Measuring:
         if abs(angle) > math.pi / 2:
             angle += math.pi
         "!!!just fine form"
-        dimPx = (dX, dY, 0)
+        dimPx = (dX, dY, dD)
         dimMm = (dimX, dimY, 0)
+        print('dimImage: ' + str(self.xy0))
+        print('DdimImage: ' + str(math.sqrt(self.xy0[0]**2 + self.xy0[1]**2)))
+        print('ratio: ' + str(self.ratioDFOV))
+        print('dimPx: ' + str(dimPx))
+        print('')
         dimM = (dimX * MM_TO_M, dimY * MM_TO_M, 0)
-        objCRFinM = (objCRF[1] * MM_TO_M, objCRF[0] * MM_TO_M, 0)
+        objCRFinM = (objCRF[1] * MM_TO_M * self.ratioDFOV,
+                     objCRF[0] * MM_TO_M * self.ratioDFOV, 0)
         objOrientation = (0, angle, 0)
-	"sent to ALEX server"
-	sendObject(objOrientation, objCRFinM)
+        "sent to ALEX server"
+        #sendObject(objOrientation, objCRFinM)
         "packing object"
         obj.shape = ''
         obj.dimensions = dimM
@@ -119,34 +128,38 @@ class Measuring:
             cv2.putText(image, 'B',
                         (int(tlblX), int(tlblY)),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
-        return obj
+        return obj, image
 
     def getListObjects(self, image):
         detail = True
         list_obj = []
-        blurred = cv2.medianBlur(image, 3)
-        gray = cv2.cvtColor(blurred, cv2.COLOR_BGR2GRAY)
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         #gray = cv2.bitwise_not(gray)
-        threshold_min = 100
-        _, blurred = cv2.threshold(gray, threshold_min, 255, cv2.THRESH_BINARY)
-        v = np.median(image)
-        sigma = 0.33
-        canny_low = int(max(0, (1 - sigma) * v))
-        canny_high = int(min(255, (1 + sigma) * v))
-        edged = cv2.Canny(blurred, canny_low, canny_high)
-        edged = cv2.dilate(edged, None, iterations=3)
-        edged = cv2.erode(edged, None, iterations=2)
+        mblur = cv2.medianBlur(gray, 5)
+        blur = cv2.blur(mblur, (7, 7))
+        _, th = cv2.threshold(blur, 100, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        # v = np.median(image)
+        # sigma = 0.33
+        # canny_low = int(max(0, (1 - sigma) * v))
+        # canny_high = int(min(255, (1 + sigma) * v))
+        # edged = cv2.Canny(image, canny_low, canny_high)
+        # edged = cv2.dilate(edged, None, iterations=3)
+        # edged = cv2.erode(edged, None, iterations=2)
 
-
+        "NO CANNY"
         screw_contour = self.c[0]
-        contours, hierarchy = cv2.findContours(edged.copy(), cv2.RETR_EXTERNAL,
+        contours, hierarchy = cv2.findContours(th, cv2.RETR_CCOMP,
                                                   cv2.CHAIN_APPROX_SIMPLE)
-        cv2.drawContours(image, contours, -1, (0, 255, 0), 3)
+        #cv2.drawContours(image, contours, -1, (0, 255, 0))
 
         obj_screw = None
         draw_contours = []  # (ret, contour)
         for contour in contours:
-            if cv2.contourArea(contour) < 600:
+            area = cv2.contourArea(contour)
+            #print(str(area))
+            if area < AREA_MIN:
+                continue
+            if area > AREA_MAX:
                 continue
             ret = cv2.matchShapes(contour, screw_contour, 1, 0)
             # print(ret)
@@ -154,43 +167,46 @@ class Measuring:
                 obj_screw = (ret, contour)
             draw_contours.append((ret, contour))
 
-        print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!', len(contours), obj_screw[0])
+        if obj_screw is not None:
+            print('qty conours: '+str(len(contours)), ' similarity: ' + str(obj_screw[0]))
 
-        if obj_screw[0] < DISSIMILARITY_THRESHOLD:
-            list_obj.append(self.getObject(obj_screw[1], image))
+            if obj_screw[0] < DISSIMILARITY_THRESHOLD:
+                o, image = self.getObject(obj_screw[1], image)
+                list_obj.append(o)
 
-        if detail:
+            if False:
 
-            for ret, contour in draw_contours:
-                if cv2.contourArea(contour) < 600:
-                    M = cv2.moments(contour)
-                    text_pos = (int(M['m10'] / M['m00']),
-                                int(M['m01'] / M['m00'])) if M['m00'] else (0, 0)
+                for ret, contour in draw_contours:
+                    if cv2.contourArea(contour) < 600:
+                        M = cv2.moments(contour)
+                        text_pos = (int(M['m10'] / M['m00']),
+                                    int(M['m01'] / M['m00'])) if M['m00'] else (0, 0)
 
-                    mask = np.zeros(gray.shape, np.uint8)
-                    cv2.drawContours(mask, [contour], 0, 255, -1)
-                    cv2.drawContours(image, [contour], 0, (0,255,0), -1)
-                    color = cv2.mean(image, mask)
+                        mask = np.zeros(gray.shape, np.uint8)
+                        cv2.drawContours(mask, [contour], 0, 255, -1)
+                        cv2.drawContours(image, [contour], 0, (0,255,0), -1)
+                        color = cv2.mean(image, mask)
 
-                    if contour is obj_screw[1]:
-                        text = 'Screw ' + str(ret)
-                        cv2.drawContours(image, [contour], -1, color, 2)
-                        cv2.putText(image, text, text_pos,
-                                    cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.8,
-                                    color=(0, 0, 0), thickness=4)
-                        cv2.putText(image, text, text_pos,
-                                    cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.8,
-                                    color=(224, 255, 224), thickness=2)
-                    else:
-                        text = '{:.3f}'.format(ret)
-                        cv2.drawContours(image, [contour], -1, color, 2)
-                        cv2.putText(image, text, text_pos,
-                                    cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.8,
-                                    color=(0, 0, 0), thickness=4)
-                        cv2.putText(image, text, text_pos,
-                                    cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.8,
-                                    color=(255, 255, 255), thickness=2)
-
+                        if contour is obj_screw[1]:
+                            text = 'Screw ' + str(ret)
+                            cv2.drawContours(image, [contour], -1, color, 2)
+                            cv2.putText(image, text, text_pos,
+                                        cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.8,
+                                        color=(0, 0, 0), thickness=4)
+                            cv2.putText(image, text, text_pos,
+                                        cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.8,
+                                        color=(224, 255, 224), thickness=2)
+                        else:
+                            text = '{:.3f}'.format(ret)
+                            cv2.drawContours(image, [contour], -1, color, 2)
+                            cv2.putText(image, text, text_pos,
+                                        cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.8,
+                                        color=(0, 0, 0), thickness=4)
+                            cv2.putText(image, text, text_pos,
+                                        cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.8,
+                                        color=(255, 255, 255), thickness=2)
+        scale = 0.5
+        image = cv2.resize(image, (int(image.shape[1]*scale), int(image.shape[0]*scale)))
         if detail:
             return list_obj, image
         else:
