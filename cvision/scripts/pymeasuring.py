@@ -14,16 +14,16 @@ from cvision.msg import ListObjects
 from cvision.msg import Orientation
 
 MM_TO_M = 0.001
-AREA_MIN = 2000
-AREA_MAX = 80000
+AREA_MIN = 600
+AREA_MAX = 20000
 
 
 class Measuring:
 
     def __init__(self, imageInfo):
         global DISSIMILARITY_THRESHOLD
-        DISSIMILARITY_THRESHOLD = 1
-        objCnt = 'squar50.npz'
+        DISSIMILARITY_THRESHOLD = 5
+        objCnt = 'blue10.npz' #'squar50.npz'
         with np.load(objCnt) as X:
             self.c = [X[i] for i in X]
         rospy.loginfo('CNT IS LOADED!')
@@ -133,25 +133,29 @@ class Measuring:
     def getListObjects(self, image):
         detail = True
         list_obj = []
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        #gray = cv2.bitwise_not(gray)
-        mblur = cv2.medianBlur(gray, 5)
-        blur = cv2.blur(mblur, (7, 7))
-        _, th = cv2.threshold(blur, 100, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-        # v = np.median(image)
-        # sigma = 0.33
-        # canny_low = int(max(0, (1 - sigma) * v))
-        # canny_high = int(min(255, (1 + sigma) * v))
-        # edged = cv2.Canny(image, canny_low, canny_high)
-        # edged = cv2.dilate(edged, None, iterations=3)
-        # edged = cv2.erode(edged, None, iterations=2)
+
+        th = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+        #th = cv2.equalizeHist(th)
+        th = cv2.medianBlur(th, 5)
+        #th = cv2.adaptiveThreshold(th, 255, 1, cv2.THRESH_BINARY, 15, 10)
+        th = cv2.blur(th, (7,7))        
+        _, th = cv2.threshold(th, 100, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+        v = np.median(image)
+        sigma = 0.33
+        canny_low = int(max(0, (1 - sigma) * v))
+        canny_high = int(min(255, (1 + sigma) * v))
+        edged = cv2.Canny(image, canny_low, canny_high)
+        edged = cv2.dilate(edged, None, iterations=3)
+        th = cv2.erode(edged, None, iterations=2)
 
         "NO CANNY"
         screw_contour = self.c[0]
         contours, hierarchy = cv2.findContours(th, cv2.RETR_CCOMP,
                                                   cv2.CHAIN_APPROX_SIMPLE)
         #cv2.drawContours(image, contours, -1, (0, 255, 0))
-
+        #cv2.drawContours(image, contours, -1, (0,0,255), 3)
         obj_screw = None
         draw_contours = []  # (ret, contour)
         for contour in contours:
@@ -161,6 +165,7 @@ class Measuring:
                 continue
             if area > AREA_MAX:
                 continue
+            
             ret = cv2.matchShapes(contour, screw_contour, 1, 0)
             # print(ret)
             if obj_screw is None or ret < obj_screw[0]:
@@ -168,13 +173,14 @@ class Measuring:
             draw_contours.append((ret, contour))
 
         if obj_screw is not None:
+            print('area: ' + str(cv2.contourArea(obj_screw[1])))
             print('qty conours: '+str(len(contours)), ' similarity: ' + str(obj_screw[0]))
 
             if obj_screw[0] < DISSIMILARITY_THRESHOLD:
                 o, image = self.getObject(obj_screw[1], image)
                 list_obj.append(o)
 
-            if False:
+            if True:
 
                 for ret, contour in draw_contours:
                     if cv2.contourArea(contour) < 600:
