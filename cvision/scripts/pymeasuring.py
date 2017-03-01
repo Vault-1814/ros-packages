@@ -6,7 +6,7 @@ import math
 import collections
 from scipy.spatial import distance as dist
 from imutils import perspective
-from client import *
+from state_client import *
 import libs.geometry as g
 import libs.utils as u
 from cvision.msg import Object
@@ -15,15 +15,17 @@ from cvision.msg import Orientation
 
 MM_TO_M = 0.001
 AREA_MIN = 600
-AREA_MAX = 20000
+AREA_MAX = 100000
 
 
 class Measuring:
 
     def __init__(self, imageInfo):
+        self.flag = True    # once run service
         global DISSIMILARITY_THRESHOLD
         DISSIMILARITY_THRESHOLD = 5
-        objCnt = 'blue10.npz' #'squar50.npz'
+        objCnt = 'wood.npz' #'squar50.npz'
+        #  objCnt = 'circle.npz'
         with np.load(objCnt) as X:
             self.c = [X[i] for i in X]
         rospy.loginfo('CNT IS LOADED!')
@@ -75,7 +77,11 @@ class Measuring:
             objVectorY = (tlblX - trbrX, tlblY - trbrY)
             angle = -g.angleBetween(self.imageRF[0], objVectorY)
         if abs(angle) > math.pi / 2:
-            angle += math.pi
+            # if angle must be positive but it is not!!
+            if 0 < abs(angle) < math.pi / 4 and tl[0] < br[0]:
+                angle += -math.pi    
+            else:
+                angle += math.pi
         "!!!just fine form"
         dimPx = (dX, dY, dD)
         dimMm = (dimX, dimY, 0)
@@ -89,7 +95,9 @@ class Measuring:
                      objCRF[0] * MM_TO_M * self.ratioDFOV, 0)
         objOrientation = (0, angle, 0)
         "sent to ALEX server"
-        #sendObject(objOrientation, objCRFinM)
+        # if self.flag:
+        #     self.flag = False
+        #     self.sendObject(objOrientation, objCRFinM)
         "packing object"
         obj.shape = ''
         obj.dimensions = dimM
@@ -134,28 +142,15 @@ class Measuring:
         detail = True
         list_obj = []
 
-        th = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-
-        #th = cv2.equalizeHist(th)
-        th = cv2.medianBlur(th, 5)
-        #th = cv2.adaptiveThreshold(th, 255, 1, cv2.THRESH_BINARY, 15, 10)
-        th = cv2.blur(th, (7,7))        
-        _, th = cv2.threshold(th, 100, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-
-        v = np.median(image)
-        sigma = 0.33
-        canny_low = int(max(0, (1 - sigma) * v))
-        canny_high = int(min(255, (1 + sigma) * v))
-        edged = cv2.Canny(image, canny_low, canny_high)
-        edged = cv2.dilate(edged, None, iterations=3)
-        th = cv2.erode(edged, None, iterations=2)
-
-        "NO CANNY"
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        blur = cv2.medianBlur(gray, 3)
+        th = cv2.adaptiveThreshold(blur, 255, 1, cv2.THRESH_BINARY, 11,3)
+        
         screw_contour = self.c[0]
-        contours, hierarchy = cv2.findContours(th, cv2.RETR_CCOMP,
+        contours, hierarchy = cv2.findContours(th.copy(), cv2.RETR_CCOMP,
                                                   cv2.CHAIN_APPROX_SIMPLE)
-        #cv2.drawContours(image, contours, -1, (0, 255, 0))
-        #cv2.drawContours(image, contours, -1, (0,0,255), 3)
+        # cv2.drawContours(image, contours, -1, (0,0,255), 3)
+        
         obj_screw = None
         draw_contours = []  # (ret, contour)
         for contour in contours:
@@ -211,19 +206,9 @@ class Measuring:
                             cv2.putText(image, text, text_pos,
                                         cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.8,
                                         color=(255, 255, 255), thickness=2)
-        scale = 0.5
-        image = cv2.resize(image, (int(image.shape[1]*scale), int(image.shape[0]*scale)))
+        # scale = 0.5
+        # image = cv2.resize(image, (int(image.shape[1]*scale), int(image.shape[0]*scale)))
         if detail:
             return list_obj, image
         else:
             return list_obj
-
-
-    """
-    def getListObjects(self, contours, details=False):
-        listObjects = []
-        for contour in contours:
-            obj = self.getObject(contour)
-            listObjects.append(obj)
-        return listObjects
-    """

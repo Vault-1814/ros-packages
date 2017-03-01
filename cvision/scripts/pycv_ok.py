@@ -4,7 +4,8 @@ import rospy
 
 import libs.utils as u
 from pymeasuring import Measuring
-from client import *
+from state_client import *
+from state_server import CameraSever
 
 from sensor_msgs.msg import Image
 from cvision.msg import Object
@@ -14,22 +15,25 @@ from cvision.msg import Orientation
 
 class Recognize:
 
-    def __init__(self, source, detail=True):
+    def __init__(self, source, length, detail=True):
         rospy.logerr("OK, i started!")
+
         self.imageInfo = {}
         self.imageInfo['shape'] = None
         self.imageInfo['ratio'] = None
         self.measuring = None
 
         self.subCamera = rospy.Subscriber(source, Image,
-                                                  self.cameraCallback)
+                                          self.cameraCallback)
         self.subOrientation = rospy.Subscriber('/orientation',
-                                                       Orientation,
-                                                       self.orientationCallback,
-                                                       queue_size=1)
+                                               Orientation,
+                                               self.orientationCallback,
+                                               queue_size=1)
 
         self.pub_main = rospy.Publisher('list_objects', ListObjects, queue_size=1)
         self.pub_view_main = rospy.Publisher('see_main', Image, queue_size=1)
+        # server wait
+        self.stateServer = CameraSever(length)
 
     def init(self):
         self.measuring = Measuring(self.imageInfo)
@@ -55,9 +59,15 @@ class Recognize:
                 self.init()
 
     def orientationCallback(self, data):
-        l = data.length
-        imageDim = u.getDimImage(l, 0, 0, 78) # 54.5, 42.3, 66.17
-        if self.imageInfo['shape'] is not None:
-            self.imageInfo['ratio'] = u.getRatio(self.imageInfo['shape'], imageDim)
-            rospy.loginfo('Computed ratios are ' + str(self.imageInfo['ratio']))
+        if data.length > 0:
+            l = data.length
+            imageDim = u.getDimImage(l, 0, 0, 78) # 54.5, 42.3, 66.17
+            if self.imageInfo['shape'] is not None:
+                self.imageInfo['ratio'] = u.getRatio(self.imageInfo['shape'], imageDim)
+                rospy.loginfo('Computed ratios are ' + str(self.imageInfo['ratio']))
+        else:
+            rospy.logerr('SEEING WAS STOPED')
+            self.imageInfo['shape'] = None
+            self.imageInfo['ratio'] = None
+            self.measuring = None
 

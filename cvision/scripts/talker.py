@@ -56,7 +56,7 @@ def talker():
     # TODO think about it
     #Recognize(camera_topic, True)
     rospy.loginfo(camera_topic)
-    Recognize(camera_topic, True)
+    Recognize(camera_topic, 520.0)
 
 
     while not rospy.is_shutdown():
