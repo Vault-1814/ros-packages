@@ -1,6 +1,0 @@
-#request
-float64[] angle
-float64[] position
----
-#response
-int8 state

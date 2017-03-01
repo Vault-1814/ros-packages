@@ -1,34 +1,35 @@
 #!/usr/bin/env python
-import rospy
-import cv2
-import numpy as np
 import math
-import collections
-from scipy.spatial import distance as dist
-from imutils import perspective
-from state_client import *
-import libs.geometry as g
-import libs.utils as u
+
+import cv2
+import imutils
+import numpy as np
 from cvision.msg import Object
-from cvision.msg import ListObjects
-from cvision.msg import Orientation
+from scipy.spatial import distance as dist
+
+import libs.geometry as g
+import talker
+from state_client import *
+
+DISSIMILARITY_THRESHOLD = 0.1
 
 MM_TO_M = 0.001
-AREA_MIN = 600
+AREA_MIN = 1000
 AREA_MAX = 100000
+DESIRED_CONTOURE_NAMES = ['circle', 'wood']
+CONTOUR_FILES_EXT = '.npz'
 
 
 class Measuring:
 
     def __init__(self, imageInfo):
-        self.flag = True    # once run service
-        global DISSIMILARITY_THRESHOLD
-        DISSIMILARITY_THRESHOLD = 5
-        objCnt = 'wood.npz' #'squar50.npz'
+        print('MEASURING: ' + str(imageInfo))
+        self.flag = True    # once run service. may remove!!
+        self.foundObjects = [0, 0]  # bool -- found if wood and circle
+        # objCnt = 'wood.npz' #'squar50.npz'
         #  objCnt = 'circle.npz'
-        with np.load(objCnt) as X:
-            self.c = [X[i] for i in X]
-        rospy.loginfo('CNT IS LOADED!')
+        # with np.load(objCnt) as X:
+        #     self.c = [X[i] for i in X]
 
         # image size
         x, y, _ = imageInfo['shape']
@@ -40,13 +41,33 @@ class Measuring:
         # center RF
         self.CRF = (y / 2, x / 2)
         self.imageRF = ((0, -self.CRF[1]), (self.CRF[0], 0))
+        self.desiredContours = []
+        print('MEASURING: ' + str(self.imageRF) + ' ' + str(self.CRF))
+        for fileName in DESIRED_CONTOURE_NAMES:
+            fileName += CONTOUR_FILES_EXT
+            with np.load(fileName) as X:
+                cnt = [X[i] for i in X]
+                self.desiredContours.append(cnt)
+        rospy.loginfo('CONTOURS WAS LOADED!')
+
+    def orderPoints(self, pts):
+        xSorted = pts[np.argsort(pts[:, 0]), :]
+        leftMost = xSorted[:2, :]
+        rightMost = xSorted[2:, :]
+        leftMost = leftMost[np.argsort(leftMost[:, 1]), :]
+        (tl, bl) = leftMost
+        D = dist.cdist(tl[np.newaxis], rightMost, "euclidean")[0]
+        (br, tr) = rightMost[np.argsort(D)[::-1], :]
+        return np.array([tl, tr, br, bl], dtype="float32")
 
     def getObject(self, contour, image=None, shape='undefined'):
+        rospy.loginfo('OBJECTS OK, getting...')
         obj = Object()
         box = cv2.minAreaRect(contour)
-        box = cv2.cv.BoxPoints(box)
+        box = cv2.cv.BoxPoints(box) if imutils.is_cv2() else cv2.boxPoints(box)
         box = np.array(box, dtype="int")
-        box = perspective.order_points(box)
+        # box = perspective.order_points(box)
+        box = self.orderPoints(box)
         if image is not None:
             cv2.drawContours(image, [box.astype("int")], -1, (0, 255, 0), 1)
         # coordinates of corners
@@ -69,7 +90,7 @@ class Measuring:
         alpha = math.atan2(dY, dX)
         dimX = dimD * math.cos(alpha)
         dimY = dimD * math.sin(alpha)
-        "object's orientation. [-90; 90] from X vector in image RF"
+        "object's orientation. [-90; 90] from the X vector in the image RF"
         if dX >= dY:
             objVectorX = (tltrX - blbrX, tltrY - blbrY)
             angle = -g.angleBetween(self.imageRF[0], objVectorX)
@@ -92,17 +113,23 @@ class Measuring:
         print('')
         dimM = (dimX * MM_TO_M, dimY * MM_TO_M, 0)
         objCRFinM = (objCRF[1] * MM_TO_M * self.ratioDFOV,
-                     objCRF[0] * MM_TO_M * self.ratioDFOV, 0)
+                     objCRF[0] * MM_TO_M * self.ratioDFOV,
+                     -talker.LENGTH * MM_TO_M)  # holy shit!
         objOrientation = (0, angle, 0)
-        "sent to ALEX server"
+        "sent to ALEX server, but now it is not need, and noo, need, and no, not need"
         # if self.flag:
         #     self.flag = False
         #     self.sendObject(objOrientation, objCRFinM)
         "packing object"
-        obj.shape = ''
+        obj.shape = shape
         obj.dimensions = dimM
         obj.coordinates_center_frame = objCRFinM
         obj.orientation = objOrientation
+        # TODO
+        if shape == 'wood':
+            self.foundObjects[0] = 1
+        elif shape == 'circle':
+            self.foundObjects[1] = 1
         for (x, y) in box:
             # top left corner of a object
             cv2.circle(image, (int(tl[0]), int(tl[1])), 5, (255, 0, 0), 2)
@@ -139,76 +166,71 @@ class Measuring:
         return obj, image
 
     def getListObjects(self, image):
-        detail = True
-        list_obj = []
+        listObjects = []
 
+        scale = 0.5
+        image = cv2.resize(image, (int(scale * self.xy0[1]), int(scale * self.xy0[0])))
+
+        # filtering image
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        blur = cv2.medianBlur(gray, 3)
-        th = cv2.adaptiveThreshold(blur, 255, 1, cv2.THRESH_BINARY, 11,3)
-        
-        screw_contour = self.c[0]
-        contours, hierarchy = cv2.findContours(th.copy(), cv2.RETR_CCOMP,
-                                                  cv2.CHAIN_APPROX_SIMPLE)
-        # cv2.drawContours(image, contours, -1, (0,0,255), 3)
-        
-        obj_screw = None
-        draw_contours = []  # (ret, contour)
+        blur = cv2.medianBlur(gray, 1)
+        # blur = cv2.blur(gray, (5, 5))
+        th = cv2.adaptiveThreshold(gray, 255, 1, cv2.THRESH_BINARY_INV, 11, 5)
+
+        # v = np.median(image)
+        # sigma = 0.33
+        # canny_low = int(max(0, (1 - sigma) * v))
+        # canny_high = int(min(255, (1 + sigma) * v))
+        # edged = cv2.Canny(gray, 10, 20) #canny_low, canny_high)
+        # edged = cv2.dilate(edged, None, iterations=1)
+        # edged = cv2.erode(edged, None, iterations=1)
+
+        contours, hierarchy = cv2.findContours(th.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        cv2.drawContours(image, contours, -1, (255, 0, 255))
+        print("total cnts: " + str(len(contours)))
+
+        # remove all the smallest and the biggest contours
+        wellContours = []
         for contour in contours:
             area = cv2.contourArea(contour)
-            #print(str(area))
-            if area < AREA_MIN:
-                continue
-            if area > AREA_MAX:
-                continue
-            
-            ret = cv2.matchShapes(contour, screw_contour, 1, 0)
-            # print(ret)
-            if obj_screw is None or ret < obj_screw[0]:
-                obj_screw = (ret, contour)
-            draw_contours.append((ret, contour))
+            if AREA_MIN < area < AREA_MAX:
+                wellContours.append(contour)
+                print("area contour: " + str(area))
 
-        if obj_screw is not None:
-            print('area: ' + str(cv2.contourArea(obj_screw[1])))
-            print('qty conours: '+str(len(contours)), ' similarity: ' + str(obj_screw[0]))
+        # compare and selecting desired contours
+        findedContours = []
+        for i, dCnt in enumerate(self.desiredContours):   # wood, circle
+            obj = None
+            # print(i + len(self.desiredContours) - 1)
+            shape = DESIRED_CONTOURE_NAMES[i]
+            for wCnt in wellContours:
+                # p = cv2.arcLength(wCnt, True)
+                # wCnt = cv2.approxPolyDP(wCnt, 0.005 * p, True)
+                ret = cv2.matchShapes(wCnt, dCnt[0], 1, 0)
 
-            if obj_screw[0] < DISSIMILARITY_THRESHOLD:
-                o, image = self.getObject(obj_screw[1], image)
-                list_obj.append(o)
+                if obj is None or ret < obj[0]:
+                    print(ret)
+                    obj = (ret, wCnt, shape)
+                    findedContours.append(obj)
 
-            if True:
+        cv2.drawContours(image, wellContours, -1, (0, 0, 255))
+        # cv2.drawContours(image, np.array(findedContours), -1, (255, 0, 0))
 
-                for ret, contour in draw_contours:
-                    if cv2.contourArea(contour) < 600:
-                        M = cv2.moments(contour)
-                        text_pos = (int(M['m10'] / M['m00']),
-                                    int(M['m01'] / M['m00'])) if M['m00'] else (0, 0)
+        print('*** qty contours: ' + str(len(wellContours)), 'satisfy contour: ' + str(len(findedContours)))
 
-                        mask = np.zeros(gray.shape, np.uint8)
-                        cv2.drawContours(mask, [contour], 0, 255, -1)
-                        cv2.drawContours(image, [contour], 0, (0,255,0), -1)
-                        color = cv2.mean(image, mask)
+        # measuring found contours
+        if len(findedContours) != 0:
+            for cnt in findedContours:
 
-                        if contour is obj_screw[1]:
-                            text = 'Screw ' + str(ret)
-                            cv2.drawContours(image, [contour], -1, color, 2)
-                            cv2.putText(image, text, text_pos,
-                                        cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.8,
-                                        color=(0, 0, 0), thickness=4)
-                            cv2.putText(image, text, text_pos,
-                                        cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.8,
-                                        color=(224, 255, 224), thickness=2)
-                        else:
-                            text = '{:.3f}'.format(ret)
-                            cv2.drawContours(image, [contour], -1, color, 2)
-                            cv2.putText(image, text, text_pos,
-                                        cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.8,
-                                        color=(0, 0, 0), thickness=4)
-                            cv2.putText(image, text, text_pos,
-                                        cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.8,
-                                        color=(255, 255, 255), thickness=2)
-        # scale = 0.5
-        # image = cv2.resize(image, (int(image.shape[1]*scale), int(image.shape[0]*scale)))
-        if detail:
-            return list_obj, image
-        else:
-            return list_obj
+                if cnt[0] < DISSIMILARITY_THRESHOLD:
+                    print('OK area: ' + str(cv2.contourArea(cnt[1])),
+                          ' similarity: ' + str(cnt[0]))
+                    o, image = self.getObject(cnt[1], image, shape=cnt[2])
+                    listObjects.append(o)
+
+        # TODO
+        state = False
+        for fo in self.foundObjects:
+            if fo == 1:
+                state = True
+        return listObjects, image, state

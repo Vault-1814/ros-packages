@@ -2,6 +2,7 @@
 import rospy
 import time
 
+from std_srvs.srv import Empty
 from std_msgs.msg import Float64
 from cvision.srv import State
 from cvision.msg import Object
@@ -30,6 +31,7 @@ class CameraSever:
         else:
             msg.length = -1
         self.pubOrientation.publish(msg)
+
         return req.state
 
     def startCameraServer(self):

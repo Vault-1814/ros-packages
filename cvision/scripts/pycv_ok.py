@@ -1,16 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8
 import rospy
-
-import libs.utils as u
-from pymeasuring import Measuring
-from state_client import *
-from state_server import CameraSever
-
-from sensor_msgs.msg import Image
-from cvision.msg import Object
 from cvision.msg import ListObjects
 from cvision.msg import Orientation
+from sensor_msgs.msg import Image
+
+import libs.utils as u
+from camera_switch_server import CameraSwitchServer
+from pymeasuring import Measuring
 
 
 class Recognize:
@@ -33,7 +30,7 @@ class Recognize:
         self.pub_main = rospy.Publisher('list_objects', ListObjects, queue_size=1)
         self.pub_view_main = rospy.Publisher('see_main', Image, queue_size=1)
         # server wait
-        self.stateServer = CameraSever(length)
+        self.stateServer = CameraSwitchServer(length)
 
     def init(self):
         self.measuring = Measuring(self.imageInfo)
@@ -45,15 +42,18 @@ class Recognize:
         cvImage, self.imageInfo['shape'] = u.getCVImage(data)
         if self.measuring is not None:
             list, imageex = self.measuring.getListObjects(cvImage)
-            # message for futher work
-            msg = ListObjects()
-            msg = list
-            rospy.loginfo('Send %s objects', len(msg))
-            self.pub_main.publish(msg)
+
+            "for topic sending"
+            # # message for further work
+            # msg = list
+            # rospy.loginfo('Send %s objects', len(msg))
+            # self.pub_main.publish(msg)
+
+            "for service sending"
+
             # message for see result
             msg_image = u.getMsgImage(imageex)
             self.pub_view_main.publish(msg_image)
-            # rospy.loginfo('Im ready working!!1!')
         else:
             if self.imageInfo['ratio'] is not None:
                 self.init()
