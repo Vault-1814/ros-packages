@@ -1,15 +1,16 @@
 #!/usr/bin/env python
+import rospy
 import math
-
+import os
 import cv2
 import imutils
 import numpy as np
+
 from cvision.msg import Object
 from scipy.spatial import distance as dist
 
 import libs.geometry as g
 import talker
-from state_client import *
 
 DISSIMILARITY_THRESHOLD = 0.1
 
@@ -22,32 +23,30 @@ CONTOUR_FILES_EXT = '.npz'
 
 class Measuring:
 
-    def __init__(self, imageInfo):
-        print('MEASURING: ' + str(imageInfo))
-        self.flag = True    # once run service. may remove!!
+    def __init__(self, imageInfo, length):
         self.foundObjects = [0, 0]  # bool -- found if wood and circle
-        # objCnt = 'wood.npz' #'squar50.npz'
-        #  objCnt = 'circle.npz'
-        # with np.load(objCnt) as X:
-        #     self.c = [X[i] for i in X]
 
+        self.length = length
         # image size
         x, y, _ = imageInfo['shape']
         self.xy0 = (x, y)
+
         # ratio [mm/px]
         self.ratioHFOV = imageInfo['ratio'][0]
         self.ratioVFOV = imageInfo['ratio'][1]
         self.ratioDFOV = imageInfo['ratio'][2]  # 0.3058082527
+
         # center RF
         self.CRF = (y / 2, x / 2)
         self.imageRF = ((0, -self.CRF[1]), (self.CRF[0], 0))
-        self.desiredContours = []
-        print('MEASURING: ' + str(self.imageRF) + ' ' + str(self.CRF))
+        self.standardContours = []
+
+        dirPath = os.path.dirname(os.path.realpath(__file__))
         for fileName in DESIRED_CONTOURE_NAMES:
-            fileName += CONTOUR_FILES_EXT
+            fileName = dirPath + '/contours/' + fileName + CONTOUR_FILES_EXT
             with np.load(fileName) as X:
                 cnt = [X[i] for i in X]
-                self.desiredContours.append(cnt)
+                self.standardContours.append(cnt)
         rospy.loginfo('CONTOURS WAS LOADED!')
 
     def orderPoints(self, pts):
@@ -61,7 +60,7 @@ class Measuring:
         return np.array([tl, tr, br, bl], dtype="float32")
 
     def getObject(self, contour, image=None, shape='undefined'):
-        rospy.loginfo('OBJECTS OK, getting...')
+        rospy.loginfo('OBJECT is ' + shape + '. Measuring...')
         obj = Object()
         box = cv2.minAreaRect(contour)
         box = cv2.cv.BoxPoints(box) if imutils.is_cv2() else cv2.boxPoints(box)
@@ -106,17 +105,15 @@ class Measuring:
         "!!!just fine form"
         dimPx = (dX, dY, dD)
         dimMm = (dimX, dimY, 0)
-        print('dimImage: ' + str(self.xy0))
-        print('DdimImage: ' + str(math.sqrt(self.xy0[0]**2 + self.xy0[1]**2)))
-        print('ratio: ' + str(self.ratioDFOV))
-        print('dimPx: ' + str(dimPx))
-        print('')
         dimM = (dimX * MM_TO_M, dimY * MM_TO_M, 0)
         objCRFinM = (objCRF[1] * MM_TO_M * self.ratioDFOV,
                      objCRF[0] * MM_TO_M * self.ratioDFOV,
-                     -talker.LENGTH * MM_TO_M)  # holy shit!
+                     -self.length * MM_TO_M)  # holy cow!
         objOrientation = (0, angle, 0)
-        "sent to ALEX server, but now it is not need, and noo, need, and no, not need"
+
+        rospy.loginfo('dims of object in [px]: ' + str(dimPx))
+
+        "sent to ALEX server, but now it is not need, or noo, need, or no, not need again"
         # if self.flag:
         #     self.flag = False
         #     self.sendObject(objOrientation, objCRFinM)
@@ -125,7 +122,8 @@ class Measuring:
         obj.dimensions = dimM
         obj.coordinates_center_frame = objCRFinM
         obj.orientation = objOrientation
-        # TODO
+        # TODO something crap...
+        # need for returns 'state' value
         if shape == 'wood':
             self.foundObjects[0] = 1
         elif shape == 'circle':
@@ -138,16 +136,9 @@ class Measuring:
                         (int(0 + 50), int(0 + 25)),
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
-            # BLUE point in a center frame
-            cv2.circle(image, (int(self.CRF[0]), int(self.CRF[1])), 5, (0, 0, 255), 2)
-            # center of object in center coordinate system
-            # cv2.circle(image, (int(xcc), int(ycc)), 5, (0, 255, 0), 2)
-            # red point of a center object
+            # BLUE point of a center object
             cv2.circle(image, (int(objGRF[0]), int(objGRF[1])), 5, (255, 0, 0), 2)
 
-            # cross in a center frame
-            cv2.line(image, (0, self.CRF[1]), (self.xy0[1], self.CRF[1]), (0, 0, 255), 1)
-            cv2.line(image, (self.CRF[0], 0), (self.CRF[0], self.xy0[0]), (0, 0, 255), 1)
 
             # cross in a center object
             # dA
@@ -168,9 +159,6 @@ class Measuring:
     def getListObjects(self, image):
         listObjects = []
 
-        scale = 0.5
-        image = cv2.resize(image, (int(scale * self.xy0[1]), int(scale * self.xy0[0])))
-
         # filtering image
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         blur = cv2.medianBlur(gray, 1)
@@ -186,8 +174,8 @@ class Measuring:
         # edged = cv2.erode(edged, None, iterations=1)
 
         contours, hierarchy = cv2.findContours(th.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        cv2.drawContours(image, contours, -1, (255, 0, 255))
-        print("total cnts: " + str(len(contours)))
+        # cv2.drawContours(image, contours, -1, (255, 0, 255))
+        rospy.loginfo('total contours in the frame is ' + str(len(contours)))
 
         # remove all the smallest and the biggest contours
         wellContours = []
@@ -195,40 +183,44 @@ class Measuring:
             area = cv2.contourArea(contour)
             if AREA_MIN < area < AREA_MAX:
                 wellContours.append(contour)
-                print("area contour: " + str(area))
 
         # compare and selecting desired contours
-        findedContours = []
-        for i, dCnt in enumerate(self.desiredContours):   # wood, circle
+        foundContours = []
+        for i, sCnt in enumerate(self.standardContours):   # wood, circle
             obj = None
-            # print(i + len(self.desiredContours) - 1)
             shape = DESIRED_CONTOURE_NAMES[i]
             for wCnt in wellContours:
                 # p = cv2.arcLength(wCnt, True)
                 # wCnt = cv2.approxPolyDP(wCnt, 0.005 * p, True)
-                ret = cv2.matchShapes(wCnt, dCnt[0], 1, 0)
-
+                ret = cv2.matchShapes(wCnt, sCnt[0], 1, 0)
                 if obj is None or ret < obj[0]:
-                    print(ret)
                     obj = (ret, wCnt, shape)
-                    findedContours.append(obj)
+                    foundContours.append(obj)
 
-        cv2.drawContours(image, wellContours, -1, (0, 0, 255))
-        # cv2.drawContours(image, np.array(findedContours), -1, (255, 0, 0))
+        # cv2.drawContours(image, wellContours, -1, (0, 0, 255))
+        rospy.loginfo('qty well contours: ' + str(len(wellContours)))
+        rospy.loginfo('qty selected contours by matching: ' + str(len(foundContours)))
 
-        print('*** qty contours: ' + str(len(wellContours)), 'satisfy contour: ' + str(len(findedContours)))
-
-        # measuring found contours
-        if len(findedContours) != 0:
-            for cnt in findedContours:
-
+        # matching and measuring found contours
+        if len(foundContours) != 0:
+            for cnt in foundContours:
                 if cnt[0] < DISSIMILARITY_THRESHOLD:
-                    print('OK area: ' + str(cv2.contourArea(cnt[1])),
-                          ' similarity: ' + str(cnt[0]))
+                    rospy.loginfo(cnt[2].upper() +
+                                  ' | area: ' + str(cv2.contourArea(cnt[1])) +
+                                  ' similr.: ' + str(cnt[0]))
                     o, image = self.getObject(cnt[1], image, shape=cnt[2])
                     listObjects.append(o)
 
-        # TODO
+        # RED point in a center frame
+        cv2.circle(image, (int(self.CRF[0]), int(self.CRF[1])), 5, (0, 0, 255), 2)
+        # cross in a center frame
+        cv2.line(image, (0, self.CRF[1]), (self.xy0[1], self.CRF[1]), (0, 0, 255), 1)
+        cv2.line(image, (self.CRF[0], 0), (self.CRF[0], self.xy0[0]), (0, 0, 255), 1)
+
+        scale = 0.5
+        image = cv2.resize(image, (int(scale * self.xy0[1]), int(scale * self.xy0[0])))
+
+        # TODO think about it :)
         state = False
         for fo in self.foundObjects:
             if fo == 1:

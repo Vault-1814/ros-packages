@@ -1,7 +1,6 @@
 #!/usr/bin/env python
-import time
-
 import rospy
+import time
 
 from cvision.srv import CameraListObjects
 from sensor_msgs.msg import Image
@@ -14,8 +13,10 @@ SERVICE_NAME = 'get_list_objects'
 
 
 class CameraSwitchServer:
+
     def __init__(self, source, length):
-        self.isReady = False
+        self.isReady = False    # while False then objects don't find
+
         self.source = source
         self.length = length
 
@@ -36,23 +37,25 @@ class CameraSwitchServer:
         imageDim = u.getDimImage(self.length, 0, 0, 78)  # 54.5, 42.3, 66.17
         self.imageInfo['ratio'] = u.getRatio(self.imageInfo['shape'],
                                              imageDim)
-        rospy.loginfo('Computed ratios are ' + str(self.imageInfo))
-        self.measuring = pymeasuring.Measuring(self.imageInfo)
-        rospy.loginfo('Measuring init complete.')
+        self.measuring = pymeasuring.Measuring(self.imageInfo, self.length)
+        rospy.loginfo("dims of image [mm]: " + str(imageDim))
+        rospy.loginfo("ratios [mm/px]: " + str(self.imageInfo['ratio']))
+        rospy.loginfo("shape [px]: " + str(self.imageInfo['shape']))
+        rospy.loginfo('init of measuring object is complete.')
 
     def cameraCallback(self, data):
         cvImage, self.imageInfo['shape'] = u.getCVImage(data)
         if self.measuring is not None:
+            rospy.loginfo('***')
             self.list, imageex, self.isReady = self.measuring.getListObjects(cvImage)
-
-            # message for see result
+            # preview topic /see_main
             msg_image = u.getMsgImage(imageex)
             self.pub_view_main.publish(msg_image)
         else:
             if self.imageInfo['shape'] is not None:
                 self.init()
             else:
-                rospy.logerr('imageInfo.shape in None!!1!')
+                rospy.logerr("no video stream. check camera's topic!")
 
     def handle(self, req):
         self.subCamera = rospy.Subscriber(self.source, Image,
@@ -60,10 +63,11 @@ class CameraSwitchServer:
         while not self.isReady:
             time.sleep(0.01)
         self.subCamera = None
+        self.measuring = None
         return [self.list]
 
     def startCameraServer(self):
-        print "ready for start! get me '1' to state service, pleeeease!\n\tor '0' for stop"
+        rospy.loginfo('CV ready to start! Waiting msg...')
         rospy.spin()    # hmmmmm...
 
 
