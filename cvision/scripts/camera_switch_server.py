@@ -44,26 +44,29 @@ class CameraSwitchServer:
         rospy.loginfo('init of measuring object is complete.')
 
     def cameraCallback(self, data):
-        cvImage, self.imageInfo['shape'] = u.getCVImage(data)
-        if self.measuring is not None:
-            rospy.loginfo('***')
-            self.list, imageex, self.isReady = self.measuring.getListObjects(cvImage)
-            # preview topic /see_main
-            msg_image = u.getMsgImage(imageex)
-            self.pub_view_main.publish(msg_image)
-        else:
-            if self.imageInfo['shape'] is not None:
-                self.init()
+        if not self.isReady:
+            cvImage, self.imageInfo['shape'] = u.getCVImage(data)
+            if self.measuring is not None:
+                rospy.loginfo('***')
+                self.list, imageex, self.isReady = self.measuring.getListObjects(cvImage)
+                # preview topic /see_main
+                msg_image = u.getMsgImage(imageex)
+                self.pub_view_main.publish(msg_image)
             else:
-                rospy.logerr("no video stream. check camera's topic!")
+                if self.imageInfo['shape'] is not None:
+                    self.init()
+                else:
+                    rospy.logerr("no video stream. check camera's topic!")
 
     def handle(self, req):
+        self.isReady = False
         self.subCamera = rospy.Subscriber(self.source, Image,
                                           self.cameraCallback)
         while not self.isReady:
             time.sleep(0.01)
         self.subCamera = None
         self.measuring = None
+
         return [self.list]
 
     def startCameraServer(self):
