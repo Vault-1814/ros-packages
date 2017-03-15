@@ -59,13 +59,21 @@ class CameraSwitchServer:
                     rospy.logerr("no video stream. check camera's topic!")
 
     def handle(self, req):
+        imAgree = False
         self.isReady = False
         self.subCamera = rospy.Subscriber(self.source, Image,
                                           self.cameraCallback)
         while not self.isReady:
             time.sleep(0.01)
-        self.subCamera = None
-        self.measuring = None
+
+        print(self.list)
+        flag = 0
+        while not imAgree:
+            self.subCamera = None
+            self.measuring = None
+            flag = input('$ type "yes" if all right: ')
+            if flag == 1:
+                imAgree = True
 
         return [self.list]
 

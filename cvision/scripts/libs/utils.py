@@ -1,6 +1,7 @@
 import rospy
 import math
 import numpy as np
+import cv2
 from cv_bridge import CvBridge, CvBridgeError
 
 
@@ -10,6 +11,7 @@ def getCVImage(data):
     shape = None
     try:
         img = bridge.imgmsg_to_cv2(data, "bgr8")
+        img = cv2.flip(img, -1)
         shape = img.shape
         shape = (shape[0], shape[1], math.sqrt(shape[0] ** 2 + shape[1] ** 2))
     except CvBridgeError, e:

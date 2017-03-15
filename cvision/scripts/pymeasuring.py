@@ -12,12 +12,12 @@ from scipy.spatial import distance as dist
 import libs.geometry as g
 import talker
 
-DISSIMILARITY_THRESHOLD = 0.1
+DISSIMILARITY_THRESHOLD = 0.01
 
 MM_TO_M = 0.001
-AREA_MIN = 1000
-AREA_MAX = 100000
-DESIRED_CONTOURE_NAMES = ['circle', 'wood']
+AREA_MIN = 3000
+AREA_MAX = 35000
+DESIRED_CONTOURE_NAMES = ['circle', 'wood', 'squar50']
 CONTOUR_FILES_EXT = '.npz'
 
 
@@ -139,7 +139,6 @@ class Measuring:
             # BLUE point of a center object
             cv2.circle(image, (int(objGRF[0]), int(objGRF[1])), 5, (255, 0, 0), 2)
 
-
             # cross in a center object
             # dA
             cv2.line(image, (int(tltrX), int(tltrY)), (int(blbrX), int(blbrY)),
@@ -161,20 +160,20 @@ class Measuring:
 
         # filtering image
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        blur = cv2.medianBlur(gray, 1)
+        blur = cv2.medianBlur(gray, 5)
         # blur = cv2.blur(gray, (5, 5))
-        th = cv2.adaptiveThreshold(gray, 255, 1, cv2.THRESH_BINARY_INV, 11, 5)
+        # th = cv2.adaptiveThreshold(gray, 255, 1, cv2.THRESH_BINARY_INV, 11, 9)
 
-        # v = np.median(image)
-        # sigma = 0.33
-        # canny_low = int(max(0, (1 - sigma) * v))
-        # canny_high = int(min(255, (1 + sigma) * v))
-        # edged = cv2.Canny(gray, 10, 20) #canny_low, canny_high)
-        # edged = cv2.dilate(edged, None, iterations=1)
-        # edged = cv2.erode(edged, None, iterations=1)
+        v = np.median(image)
+        sigma = 0.33
+        canny_low = int(max(0, (1 - sigma) * v))
+        canny_high = int(min(255, (1 + sigma) * v))
+        edged = cv2.Canny(gray, canny_low, canny_high)
+        edged = cv2.dilate(edged, None, iterations=3)
+        th = cv2.erode(edged, None, iterations=2)
 
-        contours, hierarchy = cv2.findContours(th.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        # cv2.drawContours(image, contours, -1, (255, 0, 255))
+        contours, hierarchy = cv2.findContours(th.copy(), cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
+        cv2.drawContours(image, contours, -1, (0,200,255))
         rospy.loginfo('total contours in the frame is ' + str(len(contours)))
 
         # remove all the smallest and the biggest contours
@@ -214,7 +213,7 @@ class Measuring:
         # RED point in a center frame
         cv2.circle(image, (int(self.CRF[0]), int(self.CRF[1])), 5, (0, 0, 255), 2)
         # cross in a center frame
-        cv2.line(image, (0, self.CRF[1]), (self.xy0[1], self.CRF[1]), (0, 0, 255), 1)
+        cv2.line(image, (0, self.CRF[1]), (self.xy0[1], self.CRF[1]), (0, 0, 255), 2)
         cv2.line(image, (self.CRF[0], 0), (self.CRF[0], self.xy0[0]), (0, 0, 255), 1)
 
         scale = 0.5
@@ -222,7 +221,9 @@ class Measuring:
 
         # TODO think about it :)
         state = False
-        for fo in self.foundObjects:
-            if fo == 1:
-                state = True
+        if len(listObjects) > 0:
+            state = True
+        # for fo in self.foundObjects:
+        #     if fo == 1:
+        #         state = True
         return listObjects, image, state
