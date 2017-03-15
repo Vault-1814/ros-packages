@@ -1,8 +1,0 @@
-# с какого-то форума.
-# в документации диагональный угол 78º
-
-c910 sensor seems to be 4:3, so the number would be:
-for 4:3 resolutions DFOV=83º, HFOV=70.58º and VFOV=55.92º
-
-# наклон корпуса камеры
-5.37266025772º
