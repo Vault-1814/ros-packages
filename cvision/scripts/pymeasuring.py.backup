@@ -17,13 +17,15 @@ DISSIMILARITY_THRESHOLD = 0.01
 MM_TO_M = 0.001
 AREA_MIN = 3000
 AREA_MAX = 35000
-DESIRED_CONTOURE_NAMES = ['circle', 'balk_lego']
+DESIRED_CONTOURE_NAMES = ['circle', 'wood', 'squar50']
 CONTOUR_FILES_EXT = '.npz'
 
 
 class Measuring:
 
     def __init__(self, imageInfo, length):
+        self.foundObjects = [0, 0]  # bool -- found if wood and circle
+
         self.length = length
         # image size
         x, y, _ = imageInfo['shape']
@@ -120,6 +122,12 @@ class Measuring:
         obj.dimensions = dimM
         obj.coordinates_center_frame = objCRFinM
         obj.orientation = objOrientation
+        # TODO something crap...
+        # need for returns 'state' value
+        if shape == 'wood':
+            self.foundObjects[0] = 1
+        elif shape == 'circle':
+            self.foundObjects[1] = 1
         for (x, y) in box:
             # top left corner of a object
             cv2.circle(image, (int(tl[0]), int(tl[1])), 5, (255, 0, 0), 2)
@@ -166,34 +174,24 @@ class Measuring:
         rospy.loginfo('total contours in the frame is ' + str(len(contours)))
 
         # remove all the smallest and the biggest contours
-        # just both arrays clearing from trash
         wellContours = []
-        wellHierarchy = []
-        for i, contour in enumerate(contours):
+        for contour in contours:
             area = cv2.contourArea(contour)
             if AREA_MIN < area < AREA_MAX:
                 wellContours.append(contour)
-                wellHierarchy.append(hierarchy[0][i])
 
         # compare and selecting desired contours
         foundContours = []
         for i, sCnt in enumerate(self.standardContours):   # wood, circle
             obj = None
             shape = DESIRED_CONTOURE_NAMES[i]
-            for i, wCnt in enumerate(wellContours):
+            for wCnt in wellContours:
                 # p = cv2.arcLength(wCnt, True)
                 # wCnt = cv2.approxPolyDP(wCnt, 0.005 * p, True)
-                h = wellHierarchy[i]
-                if h[3] == -1:
-                    ret = cv2.matchShapes(wCnt, sCnt[0], 1, 0)
-                    if obj is None or ret < obj[0]:
-                        obj = (ret, wCnt, shape)
-                        foundContours.append(obj)
-        print("TRUE CONOURS: " + str(len(foundContours)))
-        test = []
-        for f in foundContours:
-            test.append(f[1])
-        cv2.drawContours(image, test, -1, (0, 255, 255))
+                ret = cv2.matchShapes(wCnt, sCnt[0], 1, 0)
+                if obj is None or ret < obj[0]:
+                    obj = (ret, wCnt, shape)
+                    foundContours.append(obj)
 
         # cv2.drawContours(image, wellContours, -1, (0, 0, 255))
         rospy.loginfo('qty well contours: ' + str(len(wellContours)))
@@ -222,4 +220,7 @@ class Measuring:
         state = False
         if len(listObjects) > 0:
             state = True
+        # for fo in self.foundObjects:
+        #     if fo == 1:
+        #         state = True
         return listObjects, image, state

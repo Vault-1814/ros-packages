@@ -67,13 +67,13 @@ class CameraSwitchServer:
             time.sleep(0.01)
 
         print(self.list)
-        flag = 0
-        while not imAgree:
-            self.subCamera = None
-            self.measuring = None
-            flag = input('$ type "yes" if all right: ')
-            if flag == 1:
-                imAgree = True
+        # flag = 0
+        # while not imAgree:
+        #     self.subCamera = None
+        #     self.measuring = None
+        #     flag = input('checking: type 1 if all right: ')
+        #     if flag == 1:
+        #         imAgree = True
 
         return [self.list]
 
@@ -83,4 +83,4 @@ class CameraSwitchServer:
 
 
 if __name__ == "__main__":
-    CameraSwitchServer(520.0)
+    CameraSwitchServer(555.0)
